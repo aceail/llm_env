@@ -47,7 +47,7 @@
                     </h2>
                     <div id="collapseSystem" class="accordion-collapse collapse show" data-bs-parent="#promptAccordion">
                         <div class="accordion-body">
-                            You are a helpful assistant that analyzes medical images.
+                            {{ system_prompt }}
                         </div>
                     </div>
                 </div>
@@ -59,7 +59,7 @@
                     </h2>
                     <div id="collapseUser" class="accordion-collapse collapse" data-bs-parent="#promptAccordion">
                         <div class="accordion-body">
-                            Analyze the attached chest X-ray image and identify any abnormalities.
+                            {{ user_prompt }}
                         </div>
                     </div>
                 </div>
@@ -69,7 +69,7 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-4">
-                            <img src="https://i.imgur.com/gGRgWf8.jpeg" class="img-fluid rounded" alt="Chest X-ray 1">
+                            <img src="{{ image_url }}" class="img-fluid rounded" alt="Image">
                         </div>
                     </div>
                 </div>
@@ -79,22 +79,12 @@
                 <div class="card-body">
                     <table class="table table-bordered table-striped">
                         <tbody>
+                        {% for key, value in llm_result.items %}
                             <tr>
-                                <td class="json-key">finding</td>
-                                <td>Possible signs of pneumonia in the lower right lobe.</td>
+                                <td class="json-key">{{ key }}</td>
+                                <td>{{ value }}</td>
                             </tr>
-                            <tr>
-                                <td class="json-key">location</td>
-                                <td>[ "right lower lobe" ]</td>
-                            </tr>
-                            <tr>
-                                <td class="json-key">confidence</td>
-                                <td>0.85</td>
-                            </tr>
-                            <tr>
-                                <td class="json-key">recommendation</td>
-                                <td>Suggest further CT scan for confirmation.</td>
-                            </tr>
+                        {% endfor %}
                         </tbody>
                     </table>
                 </div>
@@ -129,10 +119,13 @@
             <div class="card">
                 <div class="card-header fw-bold">LLM Inference list</div>
                 <ul class="list-group list-group-flush">
-                    <a href="#" class="list-group-item list-group-item-action active" aria-current="true">1. CB-321(JLK-CMB)</a>
-                    <a href="#" class="list-group-item list-group-item-action">2. BD-321(JLK-BDW)</a>
-                    <a href="#" class="list-group-item list-group-item-action">3. XY-101(JLK-XYZ)</a>
-                    <a href="#" class="list-group-item list-group-item-action">4. QA-007(JLK-QAZ)</a>
+                {% for item in inference_list %}
+                    <a href="{% url 'evaluation_detail' item.pk %}" class="list-group-item list-group-item-action {% if item.pk == selected_id %}active{% endif %}">
+                        {{ forloop.counter }}. {{ item.created_at|date:"Y-m-d H:i" }}
+                    </a>
+                {% empty %}
+                    <li class="list-group-item">No inference results.</li>
+                {% endfor %}
                 </ul>
             </div>
         </aside>
