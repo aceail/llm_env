@@ -1,6 +1,46 @@
-from django.shortcuts import render
+# llm_env/inference/views.py
+
+from django.shortcuts import render, redirect # redirect 추가
 from django.views import View
 import re
+import csv  # 추가
+import json # 추가
+from .models import InferenceResult # 추가
+
+
+class UploadCsvView(View):
+    def get(self, request, *args, **kwargs):
+        return render(request, 'inference/upload_csv.html')
+
+    def post(self, request, *args, **kwargs):
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file or not csv_file.name.endswith('.csv'):
+            return render(request, 'inference/upload_csv.html', {'error': '올바른 CSV 파일을 업로드해주세요.'})
+
+        try:
+            # UTF-8로 디코딩하여 텍스트를 처리합니다.
+            reader = csv.DictReader(csv_file.read().decode('utf-8').splitlines())
+            for row in reader:
+                # 'Image Path'는 쉼표로 구분된 URL 목록일 수 있으므로 파싱합니다.
+                image_urls = [url.strip() for url in row.get('Image Path', '').split(',') if url.strip()]
+                
+                # 'LLM result'는 JSON 문자열일 가능성이 높으므로 파싱합니다.
+                try:
+                    llm_output = json.loads(row.get('LLM result', '{}'))
+                except json.JSONDecodeError:
+                    llm_output = {'error': '잘못된 형식의 LLM result JSON입니다.'}
+
+                InferenceResult.objects.create(
+                    system_prompt=row.get('System Prompt', ''),
+                    user_prompt=row.get('User Prompt', ''),
+                    image_urls=image_urls,
+                    llm_output=llm_output,
+                )
+        except Exception as e:
+            return render(request, 'inference/upload_csv.html', {'error': f'파일 처리 중 오류 발생: {e}'})
+
+        return redirect('evaluation')
+
 
 class InferenceView(View):
     def get(self, request, *args, **kwargs):

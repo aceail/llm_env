@@ -42,7 +42,7 @@
             {% if user.is_authenticated %}
                 <span class="me-3">Welcome, {{ user.username }}!</span>
                 <a href="{% url 'inference_form' %}" class="btn btn-secondary">Inference Page</a>
-                <a href="{% url 'logout' %}" class="btn btn-danger">Logout</a>
+                <a href="{% url 'upload_csv' %}" class="btn btn-info">Upload CSV</a> <a href="{% url 'logout' %}" class="btn btn-danger">Logout</a>
             {% endif %}
         </div>
     </header>
