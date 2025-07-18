@@ -6,7 +6,9 @@ class InferenceResult(models.Model):
 
     system_prompt = models.TextField()
     user_prompt = models.TextField()
-    image_url = models.URLField()
+    # Allow storing multiple image URLs instead of a single one
+    # Keep data simple by using JSON list of URLs
+    image_urls = models.JSONField(default=list)
     llm_output = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
 
