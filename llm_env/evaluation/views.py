@@ -25,10 +25,10 @@ def evaluation_view(request, pk=None):
             if result
             else 'Analyze the attached chest X-ray image and identify any abnormalities.'
         ),
-        'image_url': (
-            result.image_url
+        'image_urls': (
+            result.image_urls
             if result
-            else 'https://i.imgur.com/gGRgWf8.jpeg'
+            else ['https://i.imgur.com/gGRgWf8.jpeg']
         ),
         'llm_result': (
             result.llm_output
