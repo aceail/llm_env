@@ -126,3 +126,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # 파일 맨 아래에 추가
 LOGIN_REDIRECT_URL = '/evaluation/'
 LOGIN_URL = '/users/login/'
+
+# 1. MEDIA_URL: 미디어 파일에 접근할 때 사용할 URL의 접두사입니다.
+MEDIA_URL = '/media/'
+
+# 2. MEDIA_ROOT: 실제 파일이 저장되는 서버의 절대 경로입니다.
+#    사용자님의 이미지 경로('/home/yjpark/data_72/Data/...')를 기준으로 설정합니다.
+#    실제 환경에 맞게 이 경로를 수정해주세요.
+MEDIA_ROOT = '/'

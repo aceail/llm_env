@@ -1,11 +1,12 @@
 # llm_env/inference/views.py
 
-from django.shortcuts import render, redirect # redirect 추가
+from django.shortcuts import render, redirect
 from django.views import View
 import re
-import csv  # 추가
-import json # 추가
-from .models import InferenceResult # 추가
+import csv
+import json
+import ast  # ast 라이브러리를 추가합니다.
+from .models import InferenceResult
 
 
 class UploadCsvView(View):
@@ -19,15 +20,29 @@ class UploadCsvView(View):
 
         try:
             # UTF-8로 디코딩하여 텍스트를 처리합니다.
-            reader = csv.DictReader(csv_file.read().decode('utf-8').splitlines())
+            csv_text = csv_file.read().decode('utf-8')
+            reader = csv.DictReader(csv_text.splitlines())
+            
             for row in reader:
-                # 'Image Path'는 쉼표로 구분된 URL 목록일 수 있으므로 파싱합니다.
-                image_urls = [url.strip() for url in row.get('Image Path', '').split(',') if url.strip()]
-                
-                # 'LLM result'는 JSON 문자열일 가능성이 높으므로 파싱합니다.
+                # --- Image Path 처리 (수정된 부분) ---
+                image_path_str = row.get('Image Path', '[]')
                 try:
-                    llm_output = json.loads(row.get('LLM result', '{}'))
+                    # 문자열 "['url1', 'url2']" 를 실제 리스트 ['url1', 'url2'] 로 변환합니다.
+                    image_urls = ast.literal_eval(image_path_str)
+                    if not isinstance(image_urls, list):
+                        # 변환 결과가 리스트가 아니면 빈 리스트로 처리합니다.
+                        image_urls = []
+                except (ValueError, SyntaxError):
+                    # ast.literal_eval 실패 시, 쉼표로 구분된 단순 문자열로 처리합니다.
+                    image_urls = [url.strip() for url in image_path_str.split(',') if url.strip()]
+                
+                # --- LLM Result 처리 (수정된 부분) ---
+                llm_result_str = row.get('LLM result', '{}')
+                try:
+                    # JSON 형태의 문자열을 파이썬 딕셔너리로 변환합니다.
+                    llm_output = json.loads(llm_result_str)
                 except json.JSONDecodeError:
+                    # JSON 파싱에 실패하면 에러 메시지를 담은 딕셔너리로 처리합니다.
                     llm_output = {'error': '잘못된 형식의 LLM result JSON입니다.'}
 
                 InferenceResult.objects.create(
