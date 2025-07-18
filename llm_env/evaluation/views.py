@@ -1,3 +1,6 @@
 from django.shortcuts import render
 
-# Create your views here.
+
+def evaluation_view(request):
+    """Render a static evaluation page for testing."""
+    return render(request, 'evaluation/evaluation.html')
