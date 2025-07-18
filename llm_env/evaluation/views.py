@@ -9,7 +9,7 @@ from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.conf import settings # settings 임포트
 import os # os 임포트
-
+import json
 
 @login_required # 추가
 def evaluation_view(request, pk=None):
@@ -70,35 +70,41 @@ def evaluation_list(request):
     return render(request, 'evaluation/evaluation.html')
 
 def evaluation_detail(request, pk):
-    # --- 페이지네이션 처리 ---
     all_results = InferenceResult.objects.order_by('-created_at')
-    paginator = Paginator(all_results, 10)  # 한 페이지에 10개씩
+    paginator = Paginator(all_results, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # --- 선택된 항목 및 이미지 경로 처리 ---
     selected_item = get_object_or_404(InferenceResult, pk=pk)
 
-    # 이미지의 절대 로컬 경로를 웹 URL로 변환
+    # 이미지 경로를 웹 URL로 변환
     display_image_urls = []
-    if selected_item.image_urls:
+    if selected_item.image_urls and isinstance(selected_item.image_urls, list):
         for path in selected_item.image_urls:
-            # MEDIA_ROOT('/home/yjpark/data_72/Data/') 부분을 제거하고
-            # MEDIA_URL('/media/')을 앞에 붙여 URL을 생성합니다.
-            relative_path = os.path.relpath(path, settings.MEDIA_ROOT)
-            display_image_urls.append(os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/"))
+            # MEDIA_ROOT를 기준으로 상대 경로를 계산하여 URL 생성
+            try:
+                relative_path = os.path.relpath(path, settings.MEDIA_ROOT)
+                display_image_urls.append(os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/"))
+            except ValueError:
+                # 경로 계산이 어려운 경우(예: 다른 드라이브), 경로를 그대로 사용
+                display_image_urls.append(path)
+
+    # ▼▼▼ LLM Result 처리 로직 추가 ▼▼▼
+    # 딕셔너리 형태의 llm_output을 보기 좋게 정렬된 JSON 문자열로 변환합니다.
+    llm_result_formatted = json.dumps(selected_item.llm_output, indent=4, ensure_ascii=False)
+    # ▲▲▲ LLM Result 처리 로직 추가 ▲▲▲
 
     context = {
         'system_prompt': selected_item.system_prompt,
         'user_prompt': selected_item.user_prompt,
-        'llm_result': selected_item.llm_output,
         'selected_id': selected_item.pk,
-        'page_obj': page_obj,  # 페이지네이션 객체 전달
-        
-        # 변환된 이미지 URL 전달 (기존 image_urls 대신 사용)
+        'page_obj': page_obj,
         'display_image_urls': display_image_urls,
+        'llm_result_formatted': llm_result_formatted, # 변환된 결과를 context에 추가
     }
+    # llm_result는 제거하고, llm_result_formatted를 사용합니다.
     return render(request, 'evaluation/evaluation.html', context)
+
 
 
 @require_POST # POST 요청만 허용하여 안전하게 처리

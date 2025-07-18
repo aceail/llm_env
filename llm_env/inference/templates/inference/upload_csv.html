@@ -8,14 +8,22 @@
 <body>
 <div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
+        <div class="col-md-8"> <div class="card">
                 <div class="card-header bg-primary text-white">
                     <h1 class="h3 mb-0">Inference List에 CSV 업로드</h1>
                 </div>
                 <div class="card-body">
                     {% if error %}
-                        <div class="alert alert-danger">{{ error }}</div>
+                        <div class="alert alert-danger">
+                            <h4 class="alert-heading">{{ error }}</h4>
+                            {% if row_number %}
+                                <p>CSV 파일의 <strong>{{ row_number }}번째 데이터 행</strong>에서 문제가 발생했습니다.</p>
+                                <p><strong>오류 원인:</strong> {{ error_details }}</p>
+                                <hr>
+                                <p class="mb-0"><strong>문제가 된 데이터:</strong></p>
+                                <pre><code>{{ problematic_data }}</code></pre>
+                            {% endif %}
+                        </div>
                     {% endif %}
                     <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}

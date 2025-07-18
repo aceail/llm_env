@@ -19,40 +19,39 @@ class UploadCsvView(View):
             return render(request, 'inference/upload_csv.html', {'error': '올바른 CSV 파일을 업로드해주세요.'})
 
         try:
-            # UTF-8로 디코딩하여 텍스트를 처리합니다.
-            csv_text = csv_file.read().decode('utf-8')
+            # UTF-8-sig는 보이지 않는 BOM(Byte Order Mark) 문자를 처리해줍니다.
+            csv_text = csv_file.read().decode('utf-8-sig')
             reader = csv.DictReader(csv_text.splitlines())
             
-            for row in reader:
-                # --- Image Path 처리 (수정된 부분) ---
-                image_path_str = row.get('Image Path', '[]')
+            # ▼▼▼ 디버깅 기능이 강화된 오류 처리 로직 ▼▼▼
+            for i, row in enumerate(reader):
                 try:
-                    # 문자열 "['url1', 'url2']" 를 실제 리스트 ['url1', 'url2'] 로 변환합니다.
-                    image_urls = ast.literal_eval(image_path_str)
-                    if not isinstance(image_urls, list):
-                        # 변환 결과가 리스트가 아니면 빈 리스트로 처리합니다.
-                        image_urls = []
-                except (ValueError, SyntaxError):
-                    # ast.literal_eval 실패 시, 쉼표로 구분된 단순 문자열로 처리합니다.
-                    image_urls = [url.strip() for url in image_path_str.split(',') if url.strip()]
-                
-                # --- LLM Result 처리 (수정된 부분) ---
-                llm_result_str = row.get('LLM result', '{}')
-                try:
-                    # JSON 형태의 문자열을 파이썬 딕셔너리로 변환합니다.
-                    llm_output = json.loads(llm_result_str)
-                except json.JSONDecodeError:
-                    # JSON 파싱에 실패하면 에러 메시지를 담은 딕셔너리로 처리합니다.
-                    llm_output = {'error': '잘못된 형식의 LLM result JSON입니다.'}
+                    # Image Path 처리
+                    image_urls = ast.literal_eval(row.get('Image Path', '[]'))
 
-                InferenceResult.objects.create(
-                    system_prompt=row.get('System Prompt', ''),
-                    user_prompt=row.get('User Prompt', ''),
-                    image_urls=image_urls,
-                    llm_output=llm_output,
-                )
+                    # LLM Result 처리
+                    llm_result_str = row.get('LLM result', '{}')
+                    llm_output = ast.literal_eval(llm_result_str)
+
+                    InferenceResult.objects.create(
+                        system_prompt=row.get('System Prompt', ''),
+                        user_prompt=row.get('User Prompt', ''),
+                        image_urls=image_urls,
+                        llm_output=llm_output,
+                    )
+                except (ValueError, SyntaxError) as e:
+                    # 오류 발생 시, 어떤 데이터에서 어떤 오류가 났는지 상세 정보를 반환합니다.
+                    error_context = {
+                        'error': '데이터 파싱 중 오류가 발생했습니다.',
+                        'row_number': i + 1,
+                        'error_details': str(e),
+                        'problematic_data': row,
+                    }
+                    return render(request, 'inference/upload_csv.html', error_context)
+            # ▲▲▲ 디버깅 기능이 강화된 오류 처리 로직 ▲▲▲
+
         except Exception as e:
-            return render(request, 'inference/upload_csv.html', {'error': f'파일 처리 중 오류 발생: {e}'})
+            return render(request, 'inference/upload_csv.html', {'error': f'파일 처리 중 예측하지 못한 오류 발생: {e}'})
 
         return redirect('evaluation')
 
