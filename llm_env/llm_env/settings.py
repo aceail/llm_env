@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'inference.apps.InferenceConfig',
     'evaluation.apps.EvaluationConfig',
+    'users.apps.UsersConfig',  # 새로 추가될 앱
 ]
 
 MIDDLEWARE = [
@@ -122,3 +123,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# 파일 맨 아래에 추가
+LOGIN_REDIRECT_URL = '/evaluation/'
+LOGIN_URL = '/users/login/'

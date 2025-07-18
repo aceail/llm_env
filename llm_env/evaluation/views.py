@@ -1,8 +1,8 @@
 from django.shortcuts import get_object_or_404, render
-
+from django.contrib.auth.decorators import login_required # 추가
 from inference.models import InferenceResult
 
-
+@login_required # 추가
 def evaluation_view(request, pk=None):
     """Render the evaluation page using the latest inference result."""
 

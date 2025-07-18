@@ -14,11 +14,16 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+# llm_env/llm_env/urls.py
+
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('evaluation/', include('evaluation.urls')),
     path('inference/', include('inference.urls')),
+    path('users/', include('users.urls')),  # users 앱 URL 추가
+    path('', RedirectView.as_view(url='/evaluation/', permanent=True)), # 루트 경로 리다이렉트 추가
 ]
