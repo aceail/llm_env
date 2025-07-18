@@ -4,43 +4,253 @@
     <meta charset="UTF-8">
     <title>LLM Inference</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body { background-color: #f0f2f5; }
+        .card { border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
+        #prompt-history { max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; padding: 1rem; border-radius: .375rem; margin-bottom: 1rem; }
+        .prompt-item { border-bottom: 1px solid #e9ecef; padding-bottom: .5rem; margin-bottom: .5rem; }
+        .prompt-item:last-child { border-bottom: none; }
+        .prompt-item .badge { font-size: 0.9em; }
+        .file-preview img { height: 60px; width: 60px; object-fit: cover; margin-right: 5px; border-radius: 5px; border: 1px solid #ddd; }
+        .file-preview .file-name { font-size: 0.8em; color: #666; }
+        #file-input-section { display: none; } /* 기본적으로 파일 입력 숨김 */
+    </style>
 </head>
 <body>
-<div class="container py-4">
-    <h1 class="mb-4">LLM Inference</h1>
-    <form method="post">
-        {% csrf_token %}
-        <div class="mb-3">
-            <label class="form-label">System Prompt</label>
-            <textarea name="system_prompt" class="form-control" rows="3">{{ system_prompt }}</textarea>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-9">
+            <form id="inference-form" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="card">
+                    <div class="card-header bg-primary text-white"><h1 class="h3 mb-0">LLM Inference</h1></div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="system_prompt" class="form-label fs-5">System Prompt</label>
+                            <textarea id="system_prompt" name="system_prompt" class="form-control" rows="3">{{ system_prompt }}</textarea>
+                        </div>
+                        <hr>
+                        <h2 class="h5">Prompt Sequence</h2>
+                        <div id="prompt-history">
+                            </div>
+
+                        <div id="hidden-prompts-container"></div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card">
+                            <div class="card-body bg-light">
+                                <div class="mb-3">
+                                    <label class="form-label"><strong>Add New Prompt</strong></label>
+                                    <div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="prompt_type_selector" id="text_type" value="text" checked>
+                                            <label class="form-check-label" for="text_type">Text</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="prompt_type_selector" id="image_text_type" value="image_text">
+                                            <label class="form-check-label" for="image_text_type">Text + Image</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <textarea id="new_prompt_text" class="form-control" rows="3" placeholder="Enter your text prompt here..."></textarea>
+                                </div>
+                                <div id="file-input-section" class="mb-3">
+                                    <label for="new-prompt-files" class="form-label">Images</label>
+                                    <input class="form-control" type="file" id="new-prompt-files" multiple accept="image/*">
+                                </div>
+                                <button type="button" id="add-prompt-btn" class="btn btn-success">Add to Sequence</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Run Inference</button>
+                    </div>
+                </div>
+            </form>
         </div>
-        <div class="mb-3">
-            <label class="form-label">User Prompt</label>
-            <textarea name="user_prompt" class="form-control" rows="3">{{ user_prompt }}</textarea>
-        </div>
-        <div id="image-fields">
-            <div class="mb-3">
-                <label class="form-label">Image URL</label>
-                <input type="text" name="image_url" class="form-control" value="{{ image_urls|first }}">
-            </div>
-            {% for url in image_urls|slice:'1:' %}
-            <div class="mb-3">
-                <input type="text" name="image_url" class="form-control" value="{{ url }}">
-            </div>
-            {% endfor %}
-        </div>
-        <button type="button" id="add-image" class="btn btn-secondary mb-3">Add Image</button>
-        <button type="submit" class="btn btn-primary">Run</button>
-    </form>
+    </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
-document.getElementById('add-image').addEventListener('click', function() {
-    const container = document.getElementById('image-fields');
-    const div = document.createElement('div');
-    div.className = 'mb-3';
-    div.innerHTML = '<input type="text" name="image_url" class="form-control" placeholder="Image URL">';
-    container.appendChild(div);
+document.addEventListener('DOMContentLoaded', function () {
+    const promptHistory = document.getElementById('prompt-history');
+    const addPromptBtn = document.getElementById('add-prompt-btn');
+    const newPromptText = document.getElementById('new_prompt_text');
+    const fileInput = document.getElementById('new-prompt-files');
+    const fileInputSection = document.getElementById('file-input-section');
+    const inferenceForm = document.getElementById('inference-form');
+    const hiddenContainer = document.getElementById('hidden-prompts-container');
+
+    // 프롬프트 데이터를 저장할 배열 (파일 객체 포함)
+    let promptSequence = [];
+
+    // Prompt 타입에 따라 파일 입력 필드 보이기/숨기기
+    document.querySelectorAll('input[name="prompt_type_selector"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            fileInputSection.style.display = this.value === 'image_text' ? 'block' : 'none';
+        });
+    });
+
+    // "Add to Sequence" 버튼 클릭 이벤트
+    addPromptBtn.addEventListener('click', function () {
+        const type = document.querySelector('input[name="prompt_type_selector"]:checked').value;
+        const text = newPromptText.value.trim();
+        const files = fileInput.files;
+
+        if (!text) {
+            alert('Please enter text for the prompt.');
+            return;
+        }
+
+        if (type === 'image_text' && files.length === 0) {
+            alert('Please select at least one image file.');
+            return;
+        }
+
+        // 프롬프트 데이터를 배열에 저장
+        const promptData = {
+            type: type,
+            text: text,
+            files: type === 'image_text' ? Array.from(files) : []
+        };
+        promptSequence.push(promptData);
+        
+        updatePromptHistory(); // 화면 업데이트
+        
+        // 입력 필드 초기화
+        newPromptText.value = '';
+        fileInput.value = ''; // 선택된 파일 목록 초기화
+        document.getElementById('text_type').checked = true;
+        fileInputSection.style.display = 'none';
+    });
+
+    // 프롬프트 히스토리 UI를 업데이트하는 함수
+    function updatePromptHistory() {
+        promptHistory.innerHTML = ''; // 기존 내용 삭제
+        promptSequence.forEach((prompt, index) => {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'prompt-item';
+            
+            const badge = prompt.type === 'text' ? '<span class="badge bg-secondary">Text</span>' : '<span class="badge bg-info">Image + Text</span>';
+            let filesHTML = '';
+
+            if (prompt.files.length > 0) {
+                filesHTML += '<div class="file-preview mt-2 d-flex flex-wrap">';
+                prompt.files.forEach(file => {
+                    const previewUrl = URL.createObjectURL(file);
+                    filesHTML += `
+                        <div class="text-center me-2 mb-2">
+                            <img src="${previewUrl}" alt="${file.name}">
+                            <div class="file-name">${file.name}</div>
+                        </div>
+                    `;
+                });
+                filesHTML += '</div>';
+            }
+            
+            historyItem.innerHTML = `<div>${badge}</div><p class="mb-1">${prompt.text.replace(/\n/g, '<br>')}</p>${filesHTML}`;
+            promptHistory.appendChild(historyItem);
+        });
+        promptHistory.scrollTop = promptHistory.scrollHeight;
+    }
+
+    // 폼 제출 이벤트
+    inferenceForm.addEventListener('submit', function(e) {
+        if (promptSequence.length === 0) {
+            alert('Please add at least one prompt to the sequence.');
+            e.preventDefault(); // 폼 제출 막기
+            return;
+        }
+        
+        // FormData를 새로 만들어서 프롬프트 시퀀스 데이터 채우기
+        const formData = new FormData(inferenceForm);
+
+        // 기존 name='prompts-...' hidden input들을 제거
+        formData.delete('system_prompt'); // system_prompt는 이미 form에 있으므로 다시 추가
+        
+        promptSequence.forEach((prompt, index) => {
+            formData.append(`prompts-${index}-type`, prompt.type);
+            formData.append(`prompts-${index}-text`, prompt.text);
+            prompt.files.forEach(file => {
+                // 각 파일을 고유한 키로 추가
+                formData.append(`prompts-${index}-files`, file, file.name);
+            });
+        });
+        
+        // e.preventDefault(); // 기본 폼 제출을 막고
+        // console.log('Submitting FormData...'); // 디버깅용
+        // for (let [key, value] of formData.entries()) {
+        //     console.log(key, value);
+        // }
+        // fetch(inferenceForm.action, { method: 'POST', body: formData }); // Fetch API로 제출할 수도 있음
+        // 하지만 우리는 그냥 기본 폼 제출 방식을 사용할 것이므로, hidden input을 만들어준다.
+
+        // 새로운 hidden input들을 동적으로 생성
+        hiddenContainer.innerHTML = ''; // 초기화
+        promptSequence.forEach((prompt, index) => {
+            const typeInput = document.createElement('input');
+            typeInput.type = 'hidden';
+            typeInput.name = `prompts-${index}-type`;
+            typeInput.value = prompt.type;
+            hiddenContainer.appendChild(typeInput);
+
+            const textInput = document.createElement('input');
+            textInput.type = 'hidden';
+            textInput.name = `prompts-${index}-text`;
+            textInput.value = prompt.text;
+            hiddenContainer.appendChild(textInput);
+        });
+
+        // 파일은 기존 파일 입력 요소에 그대로 두면 폼이 제출될 때 같이 전송되지 않으므로, 
+        // 전체 파일을 담을 새로운 FileList를 만들어서 제출 직전에 할당해야 한다.
+        // 이 방식이 복잡하므로, 애초에 FormData를 새로 빌드해서 fetch로 보내는 것이 더 깔끔하나
+        // 전통적인 form submission을 위해, 그냥 각 프롬프트의 파일을 폼에 계속 추가하는 방식을 쓴다.
+        // -> 현재 로직은 최종 제출 버튼을 누를 때 폼을 재구성하는 대신,
+        // FormData 객체를 만들어서 전송하는 형태로 변경하는 것이 더 안정적입니다.
+        // 여기서는 전통적인 form submission을 유지하기 위해,
+        // 사용자가 최종 제출을 누를 때 모든 파일들을 다시 하나의 file input에 넣는 것은 복잡하므로,
+        // 각 프롬프트 추가시 생성한 hidden input들과 함께 최종적으로 폼을 제출하는 로직으로 변경합니다.
+        // (가장 간단한 방법은 각 프롬프트의 파일을 별도의 input[type=file]로 관리하는 것이지만, UI가 복잡해짐)
+
+        // **수정된 전략**: 사용자가 'Add to Sequence'를 누를 때마다 파일 입력을 복제해서 폼에 숨겨두고,
+        // 최종 제출 시 이 숨겨진 입력들을 모두 함께 보낸다.
+        // -> 이 방법도 복잡하므로, 현재의 JS로 FormData를 재구성하고 fetch로 보내는 것이 최선입니다.
+        // -> 하지만 사용자는 기존 form submission을 원할 수 있으므로, 가장 간단한 형태로 재구성합니다.
+        // 최종적으로, form submission 시 JS가 FormData를 재구성하여 submit하는 것이 아니라,
+        // 필요한 hidden input들을 만들어주는 현재 코드를 유지하되, 파일 처리에 대한 설명을 보강합니다.
+        
+        // 현재 코드는 파일 자체를 hidden input으로 만들지 못합니다.
+        // 이 문제를 해결하려면 FormData와 Fetch API를 사용해야 합니다.
+        // 하지만 최소한의 변경을 위해, 뷰가 request.FILES.getlist()를 사용하도록 수정했으므로,
+        // 자바스크립트는 각 파일들을 FormData에 올바르게 넣어주기만 하면 됩니다.
+        
+        // 폼 제출을 막고 FormData로 비동기 제출 (더 안정적)
+        e.preventDefault();
+        const finalFormData = new FormData();
+        finalFormData.append('csrfmiddlewaretoken', inferenceForm.querySelector('[name=csrfmiddlewaretoken]').value);
+        finalFormData.append('system_prompt', document.getElementById('system_prompt').value);
+
+        promptSequence.forEach((prompt, index) => {
+            finalFormData.append(`prompts-${index}-type`, prompt.type);
+            finalFormData.append(`prompts-${index}-text`, prompt.text);
+            prompt.files.forEach(file => {
+                finalFormData.append(`prompts-${index}-files`, file);
+            });
+        });
+
+        // fetch로 폼 데이터 제출
+        fetch(inferenceForm.action, {
+            method: 'POST',
+            body: finalFormData,
+        })
+        .then(response => {
+            // 응답을 받으면 페이지를 새로고침하거나 결과 페이지로 이동
+            window.location.href = response.url;
+        })
+        .catch(error => console.error('Error:', error));
+    });
 });
 </script>
 </body>
