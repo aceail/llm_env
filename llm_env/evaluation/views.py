@@ -99,3 +99,12 @@ def evaluation_detail(request, pk):
         'display_image_urls': display_image_urls,
     }
     return render(request, 'evaluation/evaluation.html', context)
+
+
+@require_POST # POST 요청만 허용하여 안전하게 처리
+def delete_all_inferences(request):
+    """
+    모든 InferenceResult 객체를 삭제합니다.
+    """
+    InferenceResult.objects.all().delete()
+    return redirect('evaluation') # 삭제 후 평가 목록 메인 페이지로 이동

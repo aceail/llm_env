@@ -42,7 +42,15 @@
             {% if user.is_authenticated %}
                 <span class="me-3">Welcome, {{ user.username }}!</span>
                 <a href="{% url 'inference_form' %}" class="btn btn-secondary">Inference Page</a>
-                <a href="{% url 'upload_csv' %}" class="btn btn-info">Upload CSV</a> <a href="{% url 'logout' %}" class="btn btn-danger">Logout</a>
+                <a href="{% url 'upload_csv' %}" class="btn btn-info">Upload CSV</a>
+                
+                <form action="{% url 'delete_all_inferences' %}" method="post" class="d-inline" onsubmit="return confirm('정말로 모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete All</button>
+                </form>
+                <a href="{% url 'logout' %}" class="btn btn-dark ms-2">Logout</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-primary">Login</a>
             {% endif %}
         </div>
     </header>
