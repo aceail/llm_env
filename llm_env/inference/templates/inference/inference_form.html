@@ -18,13 +18,30 @@
             <label class="form-label">User Prompt</label>
             <textarea name="user_prompt" class="form-control" rows="3">{{ user_prompt }}</textarea>
         </div>
-        <div class="mb-3">
-            <label class="form-label">Image URL</label>
-            <input type="text" name="image_url" class="form-control" value="{{ image_url }}">
+        <div class="mb-3" id="image-container">
+            <label class="form-label">Image URLs</label>
+            <div class="input-group mb-2">
+                <input type="text" name="image_urls" class="form-control" placeholder="https://" value="{{ image_urls.0 }}">
+                <button class="btn btn-outline-secondary" type="button" id="add-image">+</button>
+            </div>
+            {% for img in image_urls|slice:'1:' %}
+            <div class="input-group mb-2">
+                <input type="text" name="image_urls" class="form-control" value="{{ img }}">
+            </div>
+            {% endfor %}
         </div>
         <button type="submit" class="btn btn-primary">Run</button>
     </form>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.getElementById('add-image').addEventListener('click', function() {
+    const container = document.getElementById('image-container');
+    const group = document.createElement('div');
+    group.className = 'input-group mb-2';
+    group.innerHTML = '<input type="text" name="image_urls" class="form-control" placeholder="https://">';
+    container.appendChild(group);
+});
+</script>
 </body>
 </html>

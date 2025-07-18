@@ -4,7 +4,7 @@ This repository contains a minimal Django project used for experiments with larg
 
 ## Inference page
 
-Open `/inference/` to generate a new `InferenceResult`. The page provides a simple form for entering the system prompt, user prompt and an image URL. Submitting the form creates a record and redirects to the evaluation page for that result.
+Open `/inference/` to generate a new `InferenceResult`. The page now lets you enter the system prompt, a user prompt and any number of image URLs. Add more image URL fields with the **+** button. Submitting the form creates a record and redirects to its evaluation page.
 
 ## Evaluation page
 

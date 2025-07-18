@@ -9,7 +9,7 @@ def run_inference(request):
     result = InferenceResult.objects.create(
         system_prompt="You are a helpful assistant that analyzes medical images.",
         user_prompt="Analyze the attached chest X-ray image and identify any abnormalities.",
-        image_url="https://i.imgur.com/gGRgWf8.jpeg",
+        image_urls=["https://i.imgur.com/gGRgWf8.jpeg"],
         llm_output={
             "finding": "Possible signs of pneumonia in the lower right lobe.",
             "location": ["right lower lobe"],
@@ -27,13 +27,15 @@ def inference_form(request):
     defaults = {
         "system_prompt": "You are a helpful assistant that analyzes medical images.",
         "user_prompt": "Analyze the attached chest X-ray image and identify any abnormalities.",
-        "image_url": "https://i.imgur.com/gGRgWf8.jpeg",
+        "image_urls": ["https://i.imgur.com/gGRgWf8.jpeg"],
     }
 
     if request.method == "POST":
         system_prompt = request.POST.get("system_prompt", defaults["system_prompt"])
         user_prompt = request.POST.get("user_prompt", defaults["user_prompt"])
-        image_url = request.POST.get("image_url", defaults["image_url"])
+        image_urls = [url for url in request.POST.getlist("image_urls") if url]
+        if not image_urls:
+            image_urls = defaults["image_urls"]
 
         llm_output = {
             "finding": "Possible signs of pneumonia in the lower right lobe.",
@@ -45,7 +47,7 @@ def inference_form(request):
         result = InferenceResult.objects.create(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            image_url=image_url,
+            image_urls=image_urls,
             llm_output=llm_output,
         )
 
