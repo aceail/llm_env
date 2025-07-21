@@ -9,6 +9,10 @@ import ast  # ast 라이브러리를 추가합니다.
 from .models import InferenceResult
 import openpyxl  # openpyxl 라이브러리를 임포트합니다.
 
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+
+@method_decorator(login_required, name='dispatch')
 class UploadCsvView(View):
     def get(self, request, *args, **kwargs):
         return render(request, 'inference/upload_csv.html')
@@ -73,7 +77,7 @@ class UploadCsvView(View):
 
         return redirect('evaluation')
 
-
+@method_decorator(login_required, name='dispatch')
 class InferenceView(View):
     def get(self, request, *args, **kwargs):
         # GET 요청 시 초기 페이지 렌더링

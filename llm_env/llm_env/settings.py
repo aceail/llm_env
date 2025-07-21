@@ -124,8 +124,8 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # 파일 맨 아래에 추가
-LOGIN_REDIRECT_URL = '/evaluation/'
-LOGIN_URL = '/users/login/'
+LOGIN_REDIRECT_URL = '/evaluation/' # 로그인 성공 시 /evaluation/ 페이지로 이동
+LOGIN_URL = '/accounts/login/' # 로그인이 필요할 때 /accounts/login/ 페이지로 이동
 
 # 1. MEDIA_URL: 미디어 파일에 접근할 때 사용할 URL의 접두사입니다.
 MEDIA_URL = '/media/'

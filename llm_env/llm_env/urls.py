@@ -1,3 +1,5 @@
+# llm_env/llm_env/urls.py
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -5,14 +7,13 @@ from django.conf.urls.static import static
 from django.shortcuts import redirect
 
 urlpatterns = [
-    # 루트 경로("/")로 접속 시 바로 /evaluation/ 페이지로 이동
-    path('', lambda request: redirect('evaluation/', permanent=False)), 
+    # ▼▼▼ 아래 줄을 수정하세요. ▼▼▼
+    # 루트 경로("/")로 접속 시 바로 /accounts/login/ 페이지로 이동
+    path('', lambda request: redirect('accounts/login/', permanent=False)),
+    # ▲▲▲ 위 줄을 수정하세요. ▲▲▲
 
     path('admin/', admin.site.urls),
-
-    # 'accounts/' 경로를 'users.urls'에 연결합니다. (수정된 부분)
     path('accounts/', include('users.urls')), 
-
     path('inference/', include('inference.urls')),
     path('evaluation/', include('evaluation.urls')),
 ]

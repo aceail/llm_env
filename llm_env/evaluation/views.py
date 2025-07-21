@@ -61,7 +61,7 @@ def delete_inference(request, pk):
     inference_item = get_object_or_404(InferenceResult, pk=pk)
     inference_item.delete()
     return redirect('evaluation')
-
+@login_required
 def evaluation_list(request):
     first_item = InferenceResult.objects.order_by('-created_at').first()
     if first_item:
@@ -70,7 +70,7 @@ def evaluation_list(request):
     
     # 아무 항목도 없을 경우 빈 페이지 렌더링
     return render(request, 'evaluation/evaluation.html')
-
+@login_required
 def evaluation_detail(request, pk):
     all_results = InferenceResult.objects.order_by('-created_at')
     paginator = Paginator(all_results, 10)
