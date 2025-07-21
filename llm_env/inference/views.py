@@ -5,12 +5,29 @@ from django.views import View
 import re
 import csv
 import json
-import ast  # ast 라이브러리를 추가합니다.
-from .models import InferenceResult
-import openpyxl  # openpyxl 라이브러리를 임포트합니다.
+import ast
+import openpyxl
+import os # os 라이브러리 임포트
+import shutil # 파일 복사를 위한 shutil 라이브러리 임포트
+from django.conf import settings # Django 설정값을 가져오기 위해 임포트
 
+from .models import InferenceResult
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
+from django.shortcuts import render, redirect
+from django.views import View
+import re
+import csv
+import json
+import ast
+import openpyxl
+import os
+import shutil
+import uuid
+from django.conf import settings
+import logging # 디버깅을 위한 logging 라이브러리 임포트
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO) # INFO 레벨 이상의 로그를 출력하도록 설정
 
 @method_decorator(login_required, name='dispatch')
 class UploadCsvView(View):
@@ -23,60 +40,101 @@ class UploadCsvView(View):
             return render(request, 'inference/upload_csv.html', {'error': '파일을 업로드해주세요.'})
 
         file_name = uploaded_file.name
-        rows = []  # 파일 데이터를 저장할 리스트
+        rows = []
+        logger.info("==================================================")
+        logger.info(f"'{file_name}' 파일 업로드 처리를 시작합니다.")
 
         try:
-            # 파일 확장자에 따라 다르게 처리
             if file_name.endswith('.csv'):
-                # CSV 파일 처리
                 csv_text = uploaded_file.read().decode('utf-8-sig')
                 reader = csv.DictReader(csv_text.splitlines())
                 rows = list(reader)
             elif file_name.endswith('.xlsx'):
-                # XLSX 파일 처리
                 workbook = openpyxl.load_workbook(uploaded_file)
                 sheet = workbook.active
-                
-                header = [cell.value for cell in sheet[1]] # 첫 번째 행을 헤더로 사용
-                for row_cells in sheet.iter_rows(min_row=2): # 두 번째 행부터 데이터로 읽음
+                header = [cell.value for cell in sheet[1]]
+                for row_cells in sheet.iter_rows(min_row=2):
                     row_data = {header[i]: cell.value for i, cell in enumerate(row_cells)}
                     rows.append(row_data)
             else:
                 return render(request, 'inference/upload_csv.html', {'error': 'CSV 또는 XLSX 파일만 업로드할 수 있습니다.'})
 
-            # 공통 데이터 처리 로직
+            logger.info(f"파일에서 총 {len(rows)}개의 행(row)을 읽었습니다.")
+            
+            upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
+            os.makedirs(upload_dir, exist_ok=True)
+
+            # enumerate를 사용하여 행 번호를 함께 가져옵니다. (i는 0부터 시작)
             for i, row in enumerate(rows):
+                # ▼▼▼ 각 행을 처리하기 전에 로그를 출력합니다. ▼▼▼
+                logger.info(f"--- [ {i+1}번째 행 처리 시작 ] ---")
+                logger.info(f"Row Data: {row}")
+
                 try:
                     system_prompt = row.get('System Prompt', '')
                     user_prompt = row.get('User Prompt', '')
                     
-                    # 데이터가 None일 경우를 대비하여 처리
                     image_urls_str = row.get('Image Path', '[]')
-                    image_urls = ast.literal_eval(image_urls_str) if image_urls_str else []
+                    logger.info(f"  [Image Path 원본 문자열]: {image_urls_str}")
+                    
+                    local_image_paths = []
+                    # ast.literal_eval은 안전하지만, 문자열이 비어있거나 형식이 잘못되면 오류가 날 수 있습니다.
+                    if image_urls_str and image_urls_str.strip():
+                        try:
+                            local_image_paths = ast.literal_eval(image_urls_str)
+                            logger.info(f"  [파싱된 이미지 경로 리스트]: {local_image_paths}")
+                        except (ValueError, SyntaxError):
+                             logger.error(f"  [오류] Image Path 파싱 실패! 문자열 형식을 확인해주세요: {image_urls_str}")
+                             local_image_paths = [] # 파싱 실패 시 빈 리스트로 초기화
+                    else:
+                        logger.info("  [정보] Image Path가 비어있습니다.")
 
+
+                    web_image_urls = []
+                    
+                    for local_path in local_image_paths:
+                        logger.info(f"    - 처리할 이미지 경로: '{local_path}'")
+                        if local_path and os.path.exists(local_path):
+                            original_filename = os.path.basename(local_path)
+                            filename_base, file_extension = os.path.splitext(original_filename)
+                            unique_filename = f"{filename_base}_{uuid.uuid4().hex[:8]}{file_extension}"
+                            
+                            destination_path = os.path.join(upload_dir, unique_filename)
+                            shutil.copy2(local_path, destination_path)
+                            logger.info(f"      [성공] 파일 복사 완료: {destination_path}")
+                            
+                            web_url = os.path.join(settings.MEDIA_URL, 'uploads', unique_filename).replace("\\", "/")
+                            web_image_urls.append(web_url)
+                        else:
+                            logger.warning(f"      [경고] 파일을 찾을 수 없거나 경로가 비어있습니다: '{local_path}'")
+                            if local_path:
+                                web_image_urls.append(f"NOT_FOUND: {local_path}")
+                    
                     llm_output_str = row.get('LLM result', '{}')
-                    llm_output = ast.literal_eval(llm_output_str) if llm_output_str else {}
+                    llm_output = ast.literal_eval(llm_output_str) if llm_output_str and llm_output_str.strip() else {}
 
                     InferenceResult.objects.create(
                         system_prompt=system_prompt,
                         user_prompt=user_prompt,
-                        image_urls=image_urls,
+                        image_urls=web_image_urls,
                         llm_output=llm_output,
                     )
-                except (ValueError, SyntaxError) as e:
-                    error_context = {
-                        'error': '데이터 파싱 중 오류가 발생했습니다.',
-                        'row_number': i + 2, # 헤더 포함 2번째 줄부터 시작
-                        'error_details': str(e),
-                        'problematic_data': row,
-                    }
-                    return render(request, 'inference/upload_csv.html', error_context)
+                    logger.info(f"  DB 저장 완료. 저장된 URL: {web_image_urls}")
+
+                except Exception as e:
+                    logger.error(f"  [오류] 행 처리 중 심각한 오류 발생 (행 번호: {i+2}): {e}", exc_info=True)
+                    # 오류가 발생해도 다음 행을 계속 처리하도록 'continue'를 사용할 수 있습니다.
+                    # 또는 여기서 처리를 중단하고 사용자에게 오류를 알릴 수도 있습니다.
+                    # continue 
+
+            logger.info("모든 행의 처리가 완료되었습니다.")
 
         except Exception as e:
+            logger.error(f"파일 처리 중 예측하지 못한 최상위 오류 발생: {e}", exc_info=True)
             return render(request, 'inference/upload_csv.html', {'error': f'파일 처리 중 예측하지 못한 오류 발생: {e}'})
 
         return redirect('evaluation')
-
+# ... (InferenceView 클래스는 그대로 유지) ...
 @method_decorator(login_required, name='dispatch')
 class InferenceView(View):
     def get(self, request, *args, **kwargs):
