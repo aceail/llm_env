@@ -1,10 +1,16 @@
-# inference/urls.py
+# llm_env/inference/urls.py
 
 from django.urls import path
-from . import views
+from .views import UploadCsvView, InferenceView
+# 제가 이전에 EvaluationView를 이 파일에 추가하라고 안내드렸을 수 있으나,
+# evaluation 앱으로 옮기는 것이 더 정확한 구조입니다.
+# from .views import EvaluationView 
 
+app_name = 'inference'
 urlpatterns = [
-    # views.inference_form 을 views.InferenceView.as_view() 로 변경
-    path('', views.InferenceView.as_view(), name='inference_form'),
-    path('upload_csv/', views.UploadCsvView.as_view(), name='upload_csv'), # 이 부분을 추가해주세요.
+    path('upload/', UploadCsvView.as_view(), name='upload_csv'),
+    
+    # ▼▼▼ 아래 줄에서 name='inference'를 name='inference_form'으로 수정합니다. ▼▼▼
+    path('inference/', InferenceView.as_view(), name='inference_form'),
+    # ▲▲▲ name='inference_form'으로 수정 ▲▲▲
 ]

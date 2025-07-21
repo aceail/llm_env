@@ -12,6 +12,7 @@ import os # os 임포트
 import json
 from .models import Evaluation # 방금 만든 Evaluation 모델을 임포트합니다.
 from django.contrib.auth.decorators import login_required # 로그인 여부 확인
+from django.db.models import Case, When, Value, IntegerField
 
 @login_required # 추가
 def evaluation_view(request, pk=None):
@@ -70,9 +71,29 @@ def evaluation_list(request):
     
     # 아무 항목도 없을 경우 빈 페이지 렌더링
     return render(request, 'evaluation/evaluation.html')
+
 @login_required
 def evaluation_detail(request, pk):
-    all_results = InferenceResult.objects.order_by('-created_at')
+    # ▼▼▼ 정렬 로직 수정 시작 ▼▼▼
+
+    # 1. 현재 사용자가 평가한 모든 항목의 ID를 가져옵니다.
+    evaluated_ids = set(Evaluation.objects.filter(
+        evaluator=request.user
+    ).values_list('inference_result_id', flat=True))
+
+    # 2. 'is_evaluated' 라는 임시 필드를 만들어 정렬에 사용합니다.
+    #    - 평가된 항목(ID가 evaluated_ids에 포함)은 is_evaluated = 1
+    #    - 평가되지 않은 항목은 is_evaluated = 0
+    all_results = InferenceResult.objects.annotate(
+        is_evaluated=Case(
+            When(pk__in=evaluated_ids, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField(),
+        )
+    ).order_by('is_evaluated', '-created_at') # 평가안됨(0) -> 평가됨(1) 순, 그 다음 최신순으로 정렬
+
+    # ▲▲▲ 정렬 로직 수정 끝 ▲▲▲
+
     paginator = Paginator(all_results, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -82,29 +103,24 @@ def evaluation_detail(request, pk):
     display_image_urls = []
     if selected_item.image_urls and isinstance(selected_item.image_urls, list):
         for path in selected_item.image_urls:
-            try:
-                relative_path = os.path.relpath(path, settings.MEDIA_ROOT)
-                display_image_urls.append(os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/"))
-            except ValueError:
-                display_image_urls.append(path)
+            # URL인 경우와 로컬 파일 경로인 경우를 모두 처리
+            if path.startswith('http://') or path.startswith('https://') or path.startswith('/media/'):
+                 display_image_urls.append(path)
+            else:
+                try:
+                    relative_path = os.path.relpath(path, settings.MEDIA_ROOT)
+                    display_image_urls.append(os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/"))
+                except ValueError:
+                    display_image_urls.append(path)
 
     llm_result_formatted = json.dumps(selected_item.llm_output, indent=4, ensure_ascii=False)
 
     user_evaluation = None
-    evaluated_ids = set() # 빈 세트 생성
-
     if request.user.is_authenticated:
-        # 현재 사용자의 평가 기록 가져오기
         user_evaluation = Evaluation.objects.filter(
             inference_result=selected_item,
             evaluator=request.user
         ).first()
-        
-        # ▼▼▼ 현재 사용자가 평가한 모든 항목의 ID를 가져옵니다. ▼▼▼
-        evaluated_ids = set(Evaluation.objects.filter(
-            evaluator=request.user
-        ).values_list('inference_result_id', flat=True))
-        # ▲▲▲ 코드 추가 ▲▲▲
 
     context = {
         'system_prompt': selected_item.system_prompt,
@@ -114,11 +130,11 @@ def evaluation_detail(request, pk):
         'display_image_urls': display_image_urls,
         'llm_result_formatted': llm_result_formatted,
         'user_evaluation': user_evaluation,
-        'evaluated_ids': evaluated_ids,  # 평가 완료 ID 목록을 템플릿으로 전달
+        'evaluated_ids': evaluated_ids,
+        # solution_name을 context에 추가합니다.
+        'solution_name': selected_item.solution_name
     }
     return render(request, 'evaluation/evaluation.html', context)
-
-
 @require_POST # POST 요청만 허용하여 안전하게 처리
 def delete_all_inferences(request):
     """

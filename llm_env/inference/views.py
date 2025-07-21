@@ -4,7 +4,6 @@ from django.shortcuts import render, redirect
 from django.views import View
 import re
 import csv
-import json
 import ast
 import openpyxl
 import os # os 라이브러리 임포트
@@ -26,6 +25,11 @@ import shutil
 import uuid
 from django.conf import settings
 import logging # 디버깅을 위한 logging 라이브러리 임포트
+from django.db.models import Case, When, Value, IntegerField
+from .models import InferenceResult
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO) # INFO 레벨 이상의 로그를 출력하도록 설정
 
@@ -41,7 +45,7 @@ class UploadCsvView(View):
 
         file_name = uploaded_file.name
         rows = []
-        logger.info("==================================================")
+        logger.info(f"==================================================")
         logger.info(f"'{file_name}' 파일 업로드 처리를 시작합니다.")
 
         try:
@@ -64,13 +68,16 @@ class UploadCsvView(View):
             upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
             os.makedirs(upload_dir, exist_ok=True)
 
-            # enumerate를 사용하여 행 번호를 함께 가져옵니다. (i는 0부터 시작)
             for i, row in enumerate(rows):
-                # ▼▼▼ 각 행을 처리하기 전에 로그를 출력합니다. ▼▼▼
                 logger.info(f"--- [ {i+1}번째 행 처리 시작 ] ---")
                 logger.info(f"Row Data: {row}")
 
                 try:
+                    # ▼▼▼ 솔루션 이름 추출 로직 ▼▼▼
+                    solution_name = row.get('JLK-Solution', '') # 'JLK-Solution' 컬럼 값을 가져옵니다.
+                    logger.info(f"  [솔루션 이름]: {solution_name if solution_name else '없음'}")
+                    # ▲▲▲ 솔루션 이름 추출 로직 ▲▲▲
+                    
                     system_prompt = row.get('System Prompt', '')
                     user_prompt = row.get('User Prompt', '')
                     
@@ -78,54 +85,44 @@ class UploadCsvView(View):
                     logger.info(f"  [Image Path 원본 문자열]: {image_urls_str}")
                     
                     local_image_paths = []
-                    # ast.literal_eval은 안전하지만, 문자열이 비어있거나 형식이 잘못되면 오류가 날 수 있습니다.
                     if image_urls_str and image_urls_str.strip():
                         try:
                             local_image_paths = ast.literal_eval(image_urls_str)
-                            logger.info(f"  [파싱된 이미지 경로 리스트]: {local_image_paths}")
                         except (ValueError, SyntaxError):
-                             logger.error(f"  [오류] Image Path 파싱 실패! 문자열 형식을 확인해주세요: {image_urls_str}")
-                             local_image_paths = [] # 파싱 실패 시 빈 리스트로 초기화
-                    else:
-                        logger.info("  [정보] Image Path가 비어있습니다.")
-
-
-                    web_image_urls = []
+                             logger.error(f"  [오류] Image Path 파싱 실패: {image_urls_str}")
+                             local_image_paths = []
                     
+                    web_image_urls = []
                     for local_path in local_image_paths:
-                        logger.info(f"    - 처리할 이미지 경로: '{local_path}'")
+                        # ... (이미지 처리 로직은 이전과 동일)
                         if local_path and os.path.exists(local_path):
                             original_filename = os.path.basename(local_path)
                             filename_base, file_extension = os.path.splitext(original_filename)
                             unique_filename = f"{filename_base}_{uuid.uuid4().hex[:8]}{file_extension}"
-                            
                             destination_path = os.path.join(upload_dir, unique_filename)
                             shutil.copy2(local_path, destination_path)
-                            logger.info(f"      [성공] 파일 복사 완료: {destination_path}")
-                            
                             web_url = os.path.join(settings.MEDIA_URL, 'uploads', unique_filename).replace("\\", "/")
                             web_image_urls.append(web_url)
                         else:
-                            logger.warning(f"      [경고] 파일을 찾을 수 없거나 경로가 비어있습니다: '{local_path}'")
+                            # ...
                             if local_path:
                                 web_image_urls.append(f"NOT_FOUND: {local_path}")
                     
                     llm_output_str = row.get('LLM result', '{}')
                     llm_output = ast.literal_eval(llm_output_str) if llm_output_str and llm_output_str.strip() else {}
 
+                    # ▼▼▼ DB 생성 시 solution_name 필드 추가 ▼▼▼
                     InferenceResult.objects.create(
+                        solution_name=solution_name,
                         system_prompt=system_prompt,
                         user_prompt=user_prompt,
                         image_urls=web_image_urls,
                         llm_output=llm_output,
                     )
-                    logger.info(f"  DB 저장 완료. 저장된 URL: {web_image_urls}")
+                    logger.info(f"  DB 저장 완료. 솔루션: {solution_name}, 저장된 URL: {web_image_urls}")
 
                 except Exception as e:
                     logger.error(f"  [오류] 행 처리 중 심각한 오류 발생 (행 번호: {i+2}): {e}", exc_info=True)
-                    # 오류가 발생해도 다음 행을 계속 처리하도록 'continue'를 사용할 수 있습니다.
-                    # 또는 여기서 처리를 중단하고 사용자에게 오류를 알릴 수도 있습니다.
-                    # continue 
 
             logger.info("모든 행의 처리가 완료되었습니다.")
 
@@ -134,7 +131,7 @@ class UploadCsvView(View):
             return render(request, 'inference/upload_csv.html', {'error': f'파일 처리 중 예측하지 못한 오류 발생: {e}'})
 
         return redirect('evaluation')
-# ... (InferenceView 클래스는 그대로 유지) ...
+
 @method_decorator(login_required, name='dispatch')
 class InferenceView(View):
     def get(self, request, *args, **kwargs):
@@ -190,3 +187,31 @@ class InferenceView(View):
         
         # 여기서는 간단히 동일한 폼을 다시 렌더링합니다.
         return render(request, 'inference/inference_form.html', context)
+    
+
+@method_decorator(login_required, name='dispatch')
+class EvaluationView(View):
+    """
+    InferenceResult 목록을 정렬하여 보여주는 뷰
+    """
+    def get(self, request, *args, **kwargs):
+        # 1. 'llm_output' 필드가 비어있는지({} 인지) 여부를 기준으로 새로운 필드 'is_evaluated'를 추가합니다.
+        #    - llm_output이 비어있으면 is_evaluated = 0 (평가 안됨)
+        #    - llm_output에 내용이 있으면 is_evaluated = 1 (평가 완료)
+        results_with_order = InferenceResult.objects.annotate(
+            is_evaluated=Case(
+                When(llm_output__exact={}, then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField(),
+            )
+        )
+
+        # 2. 'is_evaluated'를 기준으로 오름차순 (0이 먼저),
+        #    'created_at'을 기준으로 내림차순 (최신순) 정렬합니다.
+        #    결과적으로 평가 안 된 최신 항목이 맨 위로 오게 됩니다.
+        ordered_results = results_with_order.order_by('is_evaluated', '-created_at')
+
+        context = {
+            'results': ordered_results
+        }
+        return render(request, 'inference/evaluation.html', context)

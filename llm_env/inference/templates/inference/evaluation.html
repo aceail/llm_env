@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}LLM Inference List{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>LLM Inference List</h2>
+        <div>
+            {# '데이터 업로드'와 '추론 실행' 페이지로 이동하는 버튼입니다. URL 이름이 다를 경우 수정해주세요. #}
+            <a href="{% url 'inference:upload_csv' %}" class="btn btn-primary">
+                <i class="fas fa-upload mr-1"></i> Upload Data
+            </a>
+            <a href="{% url 'inference:inference_form' %}" class="btn btn-info">
+                <i class="fas fa-play mr-1"></i> Run Inference
+            </a>
+        </div>
+    </div>
+    <p class="text-muted">
+        평가되지 않은 항목(LLM Result가 비어있는 항목)이 상단에 최신순으로 표시됩니다.
+    </p>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover mb-0">
+                    <thead class="thead-light text-center">
+                        <tr>
+                            <th scope="col" style="width: 5%;">#</th>
+                            <th scope="col" style="width: 15%;">Solution</th>
+                            <th scope="col">User Prompt</th>
+                            <th scope="col" style="width: 20%;">Images</th>
+                            <th scope="col" style="width: 25%;">LLM Result</th>
+                            <th scope="col" style="width: 12%;">Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        {# is_evaluated 값 (0 또는 1)에 따라 행의 배경색을 다르게 설정합니다. #}
+                        <tr class{% if result.is_evaluated == 1 %} class="table-light text-muted"{% endif %}>
+                            <th scope="row" class="text-center">{{ forloop.counter }}</th>
+                            
+                            {# 1. 솔루션 이름 표시 #}
+                            <td class="font-weight-bold text-center">
+                                {{ result.solution_name|default:"-" }}
+                            </td>
+                            
+                            {# 2. 사용자 프롬프트 표시 #}
+                            <td>{{ result.user_prompt }}</td>
+                            
+                            {# 3. 이미지 표시 #}
+                            <td class="text-center">
+                                {% if result.image_urls %}
+                                    {% for image_url in result.image_urls %}
+                                        {% if 'NOT_FOUND' in image_url %}
+                                            <div class="alert alert-danger p-1 mb-1" role="alert" title="{{ image_url }}">
+                                                <small><i class="fas fa-exclamation-triangle"></i> Not Found</small>
+                                            </div>
+                                        {% else %}
+                                            <a href="{{ image_url }}" target="_blank" title="Click to open full image">
+                                                <img src="{{ image_url }}" alt="Inference Image" style="max-width: 100px; max-height: 100px; margin: 2px; border-radius: 4px; border: 1px solid #ddd;">
+                                            </a>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <span>-</span>
+                                {% endif %}
+                            </td>
+                            
+                            {# 4. LLM 결과 표시 #}
+                            <td>
+                                {# JSON 데이터를 가독성 좋게 보여주기 위해 <pre> 태그 사용 #}
+                                <pre style="white-space: pre-wrap; word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 4px;"><code>{{ result.llm_output|default:"(Pending evaluation)" }}</code></pre>
+                            </td>
+
+                            {# 5. 생성 날짜 표시 #}
+                            <td class="text-center">{{ result.created_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center p-5">
+                                <p class="h4">No Data Available</p>
+                                <p>표시할 결과가 없습니다. 먼저 CSV 파일을 업로드해주세요.</p>
+                                <a href="{% url 'inference:upload_csv' %}" class="btn btn-primary mt-2">Upload First Data</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
