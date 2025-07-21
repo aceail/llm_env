@@ -7,48 +7,66 @@ import csv
 import json
 import ast  # ast 라이브러리를 추가합니다.
 from .models import InferenceResult
-
+import openpyxl  # openpyxl 라이브러리를 임포트합니다.
 
 class UploadCsvView(View):
     def get(self, request, *args, **kwargs):
         return render(request, 'inference/upload_csv.html')
 
     def post(self, request, *args, **kwargs):
-        csv_file = request.FILES.get('csv_file')
-        if not csv_file or not csv_file.name.endswith('.csv'):
-            return render(request, 'inference/upload_csv.html', {'error': '올바른 CSV 파일을 업로드해주세요.'})
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return render(request, 'inference/upload_csv.html', {'error': '파일을 업로드해주세요.'})
+
+        file_name = uploaded_file.name
+        rows = []  # 파일 데이터를 저장할 리스트
 
         try:
-            # UTF-8-sig는 보이지 않는 BOM(Byte Order Mark) 문자를 처리해줍니다.
-            csv_text = csv_file.read().decode('utf-8-sig')
-            reader = csv.DictReader(csv_text.splitlines())
-            
-            # ▼▼▼ 디버깅 기능이 강화된 오류 처리 로직 ▼▼▼
-            for i, row in enumerate(reader):
-                try:
-                    # Image Path 처리
-                    image_urls = ast.literal_eval(row.get('Image Path', '[]'))
+            # 파일 확장자에 따라 다르게 처리
+            if file_name.endswith('.csv'):
+                # CSV 파일 처리
+                csv_text = uploaded_file.read().decode('utf-8-sig')
+                reader = csv.DictReader(csv_text.splitlines())
+                rows = list(reader)
+            elif file_name.endswith('.xlsx'):
+                # XLSX 파일 처리
+                workbook = openpyxl.load_workbook(uploaded_file)
+                sheet = workbook.active
+                
+                header = [cell.value for cell in sheet[1]] # 첫 번째 행을 헤더로 사용
+                for row_cells in sheet.iter_rows(min_row=2): # 두 번째 행부터 데이터로 읽음
+                    row_data = {header[i]: cell.value for i, cell in enumerate(row_cells)}
+                    rows.append(row_data)
+            else:
+                return render(request, 'inference/upload_csv.html', {'error': 'CSV 또는 XLSX 파일만 업로드할 수 있습니다.'})
 
-                    # LLM Result 처리
-                    llm_result_str = row.get('LLM result', '{}')
-                    llm_output = ast.literal_eval(llm_result_str)
+            # 공통 데이터 처리 로직
+            for i, row in enumerate(rows):
+                try:
+                    system_prompt = row.get('System Prompt', '')
+                    user_prompt = row.get('User Prompt', '')
+                    
+                    # 데이터가 None일 경우를 대비하여 처리
+                    image_urls_str = row.get('Image Path', '[]')
+                    image_urls = ast.literal_eval(image_urls_str) if image_urls_str else []
+
+                    llm_output_str = row.get('LLM result', '{}')
+                    llm_output = ast.literal_eval(llm_output_str) if llm_output_str else {}
 
                     InferenceResult.objects.create(
-                        system_prompt=row.get('System Prompt', ''),
-                        user_prompt=row.get('User Prompt', ''),
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
                         image_urls=image_urls,
                         llm_output=llm_output,
                     )
                 except (ValueError, SyntaxError) as e:
-                    # 오류 발생 시, 어떤 데이터에서 어떤 오류가 났는지 상세 정보를 반환합니다.
                     error_context = {
                         'error': '데이터 파싱 중 오류가 발생했습니다.',
-                        'row_number': i + 1,
+                        'row_number': i + 2, # 헤더 포함 2번째 줄부터 시작
                         'error_details': str(e),
                         'problematic_data': row,
                     }
                     return render(request, 'inference/upload_csv.html', error_context)
-            # ▲▲▲ 디버깅 기능이 강화된 오류 처리 로직 ▲▲▲
 
         except Exception as e:
             return render(request, 'inference/upload_csv.html', {'error': f'파일 처리 중 예측하지 못한 오류 발생: {e}'})

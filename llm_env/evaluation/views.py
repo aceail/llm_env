@@ -10,6 +10,8 @@ from django.views.decorators.http import require_POST
 from django.conf import settings # settings 임포트
 import os # os 임포트
 import json
+from .models import Evaluation # 방금 만든 Evaluation 모델을 임포트합니다.
+from django.contrib.auth.decorators import login_required # 로그인 여부 확인
 
 @login_required # 추가
 def evaluation_view(request, pk=None):
@@ -77,22 +79,32 @@ def evaluation_detail(request, pk):
 
     selected_item = get_object_or_404(InferenceResult, pk=pk)
 
-    # 이미지 경로를 웹 URL로 변환
     display_image_urls = []
     if selected_item.image_urls and isinstance(selected_item.image_urls, list):
         for path in selected_item.image_urls:
-            # MEDIA_ROOT를 기준으로 상대 경로를 계산하여 URL 생성
             try:
                 relative_path = os.path.relpath(path, settings.MEDIA_ROOT)
                 display_image_urls.append(os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/"))
             except ValueError:
-                # 경로 계산이 어려운 경우(예: 다른 드라이브), 경로를 그대로 사용
                 display_image_urls.append(path)
 
-    # ▼▼▼ LLM Result 처리 로직 추가 ▼▼▼
-    # 딕셔너리 형태의 llm_output을 보기 좋게 정렬된 JSON 문자열로 변환합니다.
     llm_result_formatted = json.dumps(selected_item.llm_output, indent=4, ensure_ascii=False)
-    # ▲▲▲ LLM Result 처리 로직 추가 ▲▲▲
+
+    user_evaluation = None
+    evaluated_ids = set() # 빈 세트 생성
+
+    if request.user.is_authenticated:
+        # 현재 사용자의 평가 기록 가져오기
+        user_evaluation = Evaluation.objects.filter(
+            inference_result=selected_item,
+            evaluator=request.user
+        ).first()
+        
+        # ▼▼▼ 현재 사용자가 평가한 모든 항목의 ID를 가져옵니다. ▼▼▼
+        evaluated_ids = set(Evaluation.objects.filter(
+            evaluator=request.user
+        ).values_list('inference_result_id', flat=True))
+        # ▲▲▲ 코드 추가 ▲▲▲
 
     context = {
         'system_prompt': selected_item.system_prompt,
@@ -100,11 +112,11 @@ def evaluation_detail(request, pk):
         'selected_id': selected_item.pk,
         'page_obj': page_obj,
         'display_image_urls': display_image_urls,
-        'llm_result_formatted': llm_result_formatted, # 변환된 결과를 context에 추가
+        'llm_result_formatted': llm_result_formatted,
+        'user_evaluation': user_evaluation,
+        'evaluated_ids': evaluated_ids,  # 평가 완료 ID 목록을 템플릿으로 전달
     }
-    # llm_result는 제거하고, llm_result_formatted를 사용합니다.
     return render(request, 'evaluation/evaluation.html', context)
-
 
 
 @require_POST # POST 요청만 허용하여 안전하게 처리
@@ -114,3 +126,33 @@ def delete_all_inferences(request):
     """
     InferenceResult.objects.all().delete()
     return redirect('evaluation') # 삭제 후 평가 목록 메인 페이지로 이동
+
+
+@login_required # 로그인이 필요한 기능
+@require_POST   # POST 요청만 허용 (보안)
+def submit_evaluation(request, pk):
+    inference_result = get_object_or_404(InferenceResult, pk=pk)
+
+    # 템플릿의 form에서 넘어온 데이터 받기
+    agreement = request.POST.get('agreement')
+    quality = request.POST.get('quality')
+    comment = request.POST.get('comment', '') # 코멘트는 없을 수도 있음
+
+    # 필수 값들이 있는지 확인
+    if not agreement or not quality:
+        # 값이 없으면, 그냥 원래 페이지로 돌아감 (추후 에러 메시지 추가 가능)
+        return redirect('evaluation_detail', pk=pk)
+
+    # 동일한 사용자가 동일한 항목에 대해 중복 평가하는 것을 방지
+    Evaluation.objects.update_or_create(
+        inference_result=inference_result,
+        evaluator=request.user,
+        defaults={
+            'agreement': agreement,
+            'quality': int(quality),
+            'comment': comment,
+        }
+    )
+
+    # 저장이 끝나면 다시 원래 보던 페이지로 이동
+    return redirect('evaluation_detail', pk=pk)
