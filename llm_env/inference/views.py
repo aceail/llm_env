@@ -213,12 +213,27 @@ class UploadZipView(View):
                         if item.get('ai_dir'):
                             output['ai_dir'] = item.get('ai_dir')
 
+                    def collect_image_urls(dir_path):
+                        urls = []
+                        if dir_path:
+                            new_path = dir_path.replace(str(output_dir), str(moved_output_dir))
+                            p = Path(new_path)
+                            if p.exists():
+                                for img in p.rglob('*.png'):
+                                    urls.append(str(img).replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL).replace('\\', '/'))
+                        return urls
+
+                    image_urls = []
+                    image_urls.extend(collect_image_urls(item.get('non_mask_dir')))
+                    image_urls.extend(collect_image_urls(item.get('ai_dir')))
+
                     output = update_paths(output)
 
                     InferenceResult.objects.create(
                         solution_name=solution_name,
                         system_prompt="기존과 동일",
                         user_prompt="기존과 동일",
+                        image_urls=image_urls,
                         llm_output=output,
                     )
                 except Exception as e:
