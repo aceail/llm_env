@@ -34,7 +34,26 @@
 <body>
 
 <div class="container-fluid p-3 p-md-4">
-    <header class="d-flex justify-content-between align-items-center mb-4"><h1 class="h3 mb-0">LLM Evaluation</h1><div class="d-flex align-items-center">{% if user.is_authenticated %}<span class="me-3">Welcome, {{ user.username }}!</span><a href="{% url 'inference:inference_form' %}" class="btn btn-sm btn-secondary me-2">Inference Page</a><a href="{% url 'inference:upload_csv' %}" class="btn btn-sm btn-info me-2">Upload CSV</a><a href="{% url 'download_paired_results' %}" class="btn btn-sm btn-success me-2">Download Data</a><form action="{% url 'delete_all_inferences' %}" method="post" class="d-inline me-2" onsubmit="return confirm('정말로 모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');">{% csrf_token %}<button type="submit" class="btn btn-sm btn-danger">Delete All</button></form><a href="{% url 'logout' %}" class="btn btn-sm btn-dark">Logout</a>{% else %}<a href="{% url 'login' %}" class="btn btn-primary">Login</a>{% endif %}</div></header>
+    <header class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">LLM Evaluation</h1>
+        <div class="d-flex align-items-center">
+            {% if user.is_authenticated %}
+                <span class="me-3">Welcome, {{ user.username }}!</span>
+                <a href="{% url 'inference:inference_form' %}" class="btn btn-sm btn-secondary me-2">Inference Page</a>
+                <a href="{% url 'inference:upload_csv' %}" class="btn btn-sm btn-info me-2">Upload CSV</a>
+                {% if user.is_staff %}
+                    <a href="{% url 'download_paired_results' %}" class="btn btn-sm btn-success me-2">Download Data</a>
+                {% endif %}
+                <form action="{% url 'delete_all_inferences' %}" method="post" class="d-inline me-2" onsubmit="return confirm('정말로 모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-danger">Delete All</button>
+                </form>
+                <a href="{% url 'logout' %}" class="btn btn-sm btn-dark">Logout</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-primary">Login</a>
+            {% endif %}
+        </div>
+    </header>
 
     <div class="row">
         <main class="col-md-9">
