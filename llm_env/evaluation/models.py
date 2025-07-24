@@ -16,8 +16,11 @@ class Evaluation(models.Model):
     agreement = models.CharField(max_length=1, choices=[('O', 'O'), ('X', 'X')])
     quality = models.IntegerField()  # 1점에서 5점까지 저장
     comment = models.TextField(blank=True) # 코멘트는 비어있을 수 있음
+    lesion_vessel = models.CharField(max_length=255, blank=True, default="")
+    lesion_anatomic = models.CharField(max_length=255, blank=True, default="")
     
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Evaluation for {self.inference_result.id} by {self.evaluator.username}"
+
