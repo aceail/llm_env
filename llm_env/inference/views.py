@@ -167,6 +167,12 @@ class UploadZipView(View):
             except Exception as e:  # pragma: no cover - runtime safeguard
                 logger.error("LLM_main execution failed: %s", e, exc_info=True)
 
+        # cleanup extracted data regardless of success
+        extract_dir = Path(saved_path).with_suffix("")
+        output_dir = Path(settings.BASE_DIR) / f"{Path(saved_path).stem}_output_images"
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        shutil.rmtree(output_dir, ignore_errors=True)
+
         for item in results:
             try:
                 solution_name = item.get('solution', '')
@@ -181,6 +187,8 @@ class UploadZipView(View):
 
                 InferenceResult.objects.create(
                     solution_name=solution_name,
+                    system_prompt="기존과 동일",
+                    user_prompt="기존과 동일",
                     llm_output=output,
                 )
             except Exception as e:
