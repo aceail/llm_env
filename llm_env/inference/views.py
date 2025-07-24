@@ -158,10 +158,10 @@ class UploadZipView(View):
             for chunk in uploaded.chunks():
                 dest.write(chunk)
 
-        # Also keep a copy under MEDIA_ROOT/uploads as requested
-        uploads_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
-        os.makedirs(uploads_dir, exist_ok=True)
-        shutil.copy2(saved_path, os.path.join(uploads_dir, uploaded.name))
+        # # Also keep a copy under MEDIA_ROOT/uploads as requested
+        # uploads_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
+        # os.makedirs(uploads_dir, exist_ok=True)
+        # shutil.copy2(saved_path, os.path.join(uploads_dir, uploaded.name))
 
         def run_inference(path):
             media_output_root = Path(settings.MEDIA_ROOT) / "dicom_outputs"
@@ -216,7 +216,13 @@ class UploadZipView(View):
                             p = Path(new_path)
                             if p.exists():
                                 for img in p.rglob('*.png'):
-                                    urls.append(str(img).replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL).replace('\\', '/'))
+                                    img_str = str(img)
+                                    if img_str.startswith(str(settings.MEDIA_ROOT)):
+                                        rel = os.path.relpath(img_str, settings.MEDIA_ROOT)
+                                        url = os.path.join(settings.MEDIA_URL, rel)
+                                    else:
+                                        url = img_str
+                                    urls.append(url.replace('\\', '/'))
                         return urls
 
                     image_urls = []
@@ -229,7 +235,7 @@ class UploadZipView(View):
                     print(f"[DEBUG] ai_dir: {ai_dir}")
                     print(f"[DEBUG] non_mask images: {collect_image_urls(non_mask)}")
                     print(f"[DEBUG] ai_dir images: {collect_image_urls(ai_dir)}")
-                    
+
                     InferenceResult.objects.create(
                         solution_name=solution_name,
                         system_prompt="기존과 동일",

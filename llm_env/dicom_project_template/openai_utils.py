@@ -110,13 +110,6 @@ def JLK_CTL(mask_path: Path, path: Path) -> Optional[str]:
             content_blocks.append({"type": "input_text", "text": desc_0})
             content_blocks.append({"type": "input_image", "image_url": img_0})
 
-        desc_nomask = (
-            "non_mask : JLK-CTL Summary_0000과 동일한 영상이며, 붉은색 마스크를 제거한 버전입니다. (정확한 비교를 위해 mask만 제외되었습니다.)"
-        )
-        img_nomask = safe_load_image(str(mask_path / "non_mask.png"))
-        if img_nomask:
-            content_blocks.append({"type": "input_text", "text": desc_nomask})
-            content_blocks.append({"type": "input_image", "image_url": img_nomask})
 
         desc_1 = "JLK-CTL Summary_0001: NCCT 영상을 분석해서 나온 ASPECT 점수 결과와 영역별 HU 의 평균"
         img_1 = safe_load_image(str(path / "JLK-CTL Summary_0001.png"))
