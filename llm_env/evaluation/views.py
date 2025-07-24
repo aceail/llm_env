@@ -10,6 +10,9 @@ from django.views.decorators.http import require_POST
 from django.conf import settings # settings 임포트
 import os # os 임포트
 import json
+import csv
+import io
+import zipfile
 from .models import Evaluation # 방금 만든 Evaluation 모델을 임포트합니다.
 from django.contrib.auth.decorators import login_required # 로그인 여부 확인
 from django.db.models import Case, When, Value, IntegerField
@@ -172,3 +175,69 @@ def submit_evaluation(request, pk):
 
     # 저장이 끝나면 다시 원래 보던 페이지로 이동
     return redirect('evaluation_detail', pk=pk)
+
+
+@login_required
+def download_paired_results(request):
+    """Download all inference results and their evaluations as a zip file."""
+    evaluations = Evaluation.objects.select_related("inference_result", "evaluator")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zip_file:
+        csv_buffer = io.StringIO()
+        writer = csv.writer(csv_buffer)
+        writer.writerow(
+            [
+                "evaluation_id",
+                "evaluator",
+                "inference_id",
+                "solution_name",
+                "system_prompt",
+                "user_prompt",
+                "image_urls",
+                "llm_output",
+                "agreement",
+                "quality",
+                "comment",
+                "created_at",
+            ]
+        )
+
+        for eva in evaluations:
+            ir = eva.inference_result
+            image_urls = ";".join(ir.image_urls) if ir.image_urls else ""
+            writer.writerow(
+                [
+                    eva.id,
+                    eva.evaluator.username,
+                    ir.id,
+                    ir.solution_name,
+                    ir.system_prompt,
+                    ir.user_prompt,
+                    image_urls,
+                    json.dumps(ir.llm_output, ensure_ascii=False),
+                    eva.agreement,
+                    eva.quality,
+                    eva.comment,
+                    eva.created_at.isoformat(),
+                ]
+            )
+
+            if ir.image_urls:
+                for url in ir.image_urls:
+                    if url.startswith("http://") or url.startswith("https://"):
+                        continue
+                    local_path = url
+                    if url.startswith(settings.MEDIA_URL):
+                        relative = url[len(settings.MEDIA_URL) :].lstrip("/")
+                        local_path = os.path.join(settings.MEDIA_ROOT, relative)
+                    if os.path.exists(local_path):
+                        arcname = os.path.join("images", os.path.basename(local_path))
+                        zip_file.write(local_path, arcname=arcname)
+
+        zip_file.writestr("evaluations.csv", csv_buffer.getvalue())
+
+    buffer.seek(0)
+    response = HttpResponse(buffer.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = "attachment; filename=paired_results.zip"
+    return response
