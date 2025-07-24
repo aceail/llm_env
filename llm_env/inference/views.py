@@ -222,6 +222,8 @@ class UploadZipView(View):
                     image_urls = []
                     image_urls.extend(collect_image_urls(item.get('non_mask_dir')))
                     image_urls.extend(collect_image_urls(item.get('ai_dir')))
+                    # Remove duplicates while preserving order
+                    image_urls = list(dict.fromkeys(image_urls))
 
                     output = update_paths(output)
 
