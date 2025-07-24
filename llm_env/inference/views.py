@@ -172,7 +172,10 @@ class UploadZipView(View):
                     logger.error("LLM_main execution failed: %s", e, exc_info=True)
 
             extract_dir = Path(path).with_suffix("")
-            output_dir = Path(settings.BASE_DIR) / f"{Path(path).stem}_output_images"
+            # LLM_main writes images to a directory relative to the current
+            # working directory. Resolve that path here so we can move it into
+            # MEDIA_ROOT after processing.
+            output_dir = Path(f"{Path(path).stem}_output_images").resolve()
 
             media_output_root = Path(settings.MEDIA_ROOT) / "dicom_outputs"
             os.makedirs(media_output_root, exist_ok=True)
