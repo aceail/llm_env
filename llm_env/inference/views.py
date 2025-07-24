@@ -31,16 +31,13 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from pathlib import Path
 import sys
+from dicom_project_template.LLM_main import main as dicom_llm_main
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO) # INFO 레벨 이상의 로그를 출력하도록 설정
 
-# Add dicom_project_template path for zip processing
-sys.path.append(str(Path(settings.BASE_DIR).parent / 'dicom_project_template'))
-try:
-    from LLM_main import main as dicom_llm_main
-except Exception:  # pragma: no cover - import may fail during tests without package
-    dicom_llm_main = None
+
 
 @method_decorator(login_required, name='dispatch')
 class UploadCsvView(View):
@@ -161,6 +158,7 @@ class UploadZipView(View):
                 dest.write(chunk)
 
         results = []
+        print(saved_path)
         if dicom_llm_main:
             try:
                 results = dicom_llm_main(saved_path) or []
