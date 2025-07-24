@@ -134,6 +134,7 @@ def evaluation_detail(request, pk):
                     else:
                         display_image_urls.append(local_path)
 
+    display_image_urls = list(dict.fromkeys(display_image_urls))
     llm_result_formatted = json.dumps(selected_item.llm_output, indent=4, ensure_ascii=False)
 
     user_evaluation = None
