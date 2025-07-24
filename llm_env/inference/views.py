@@ -9,7 +9,7 @@ import openpyxl
 import os # os 라이브러리 임포트
 import shutil # 파일 복사를 위한 shutil 라이브러리 임포트
 from django.conf import settings # Django 설정값을 가져오기 위해 임포트
-
+import numpy as np
 from .models import InferenceResult
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
@@ -222,11 +222,14 @@ class UploadZipView(View):
                     image_urls = []
                     image_urls.extend(collect_image_urls(item.get('non_mask_dir')))
                     image_urls.extend(collect_image_urls(item.get('ai_dir')))
-                    # Remove duplicates while preserving order
-                    image_urls = list(dict.fromkeys(image_urls))
-
-                    output = update_paths(output)
-
+                    image_urls = list(dict.fromkeys(image_urls))  # 순서 보존 + 중복 제거
+                    non_mask = item.get('non_mask_dir')
+                    ai_dir = item.get('ai_dir')
+                    print(f"[DEBUG] non_mask_dir: {non_mask}")
+                    print(f"[DEBUG] ai_dir: {ai_dir}")
+                    print(f"[DEBUG] non_mask images: {collect_image_urls(non_mask)}")
+                    print(f"[DEBUG] ai_dir images: {collect_image_urls(ai_dir)}")
+                    
                     InferenceResult.objects.create(
                         solution_name=solution_name,
                         system_prompt="기존과 동일",
