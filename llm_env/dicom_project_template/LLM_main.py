@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from dataset_utils import _collection_path
-from file_utils import extract_zip
-from image_processing import convert_all_dicom_to_png_parallel
-from openai_utils import JLK_ICH, JLK_CTL, JLK_CTI, JLK_WMHC
+from .dataset_utils import _collection_path
+from .file_utils import extract_zip
+from .image_processing import convert_all_dicom_to_png_parallel
+from .openai_utils import JLK_ICH, JLK_CTL, JLK_CTI, JLK_WMHC
 from tqdm import tqdm
 
 
