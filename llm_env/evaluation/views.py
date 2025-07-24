@@ -152,6 +152,8 @@ def submit_evaluation(request, pk):
     agreement = request.POST.get('agreement')
     quality = request.POST.get('quality')
     comment = request.POST.get('comment', '') # 코멘트는 없을 수도 있음
+    lesion_vessel = request.POST.get('lesion_vessel', '')
+    lesion_anatomic = request.POST.get('lesion_anatomic', '')
 
     # 필수 값들이 있는지 확인
     if not agreement or not quality:
@@ -166,6 +168,8 @@ def submit_evaluation(request, pk):
             'agreement': agreement,
             'quality': int(quality),
             'comment': comment,
+            'lesion_vessel': lesion_vessel,
+            'lesion_anatomic': lesion_anatomic,
         }
     )
 
@@ -195,6 +199,8 @@ def download_paired_results(request):
                 "agreement",
                 "quality",
                 "comment",
+                "lesion_vessel",
+                "lesion_anatomic",
                 "created_at",
             ]
         )
@@ -215,6 +221,8 @@ def download_paired_results(request):
                     eva.agreement,
                     eva.quality,
                     eva.comment,
+                    eva.lesion_vessel,
+                    eva.lesion_anatomic,
                     eva.created_at.isoformat(),
                 ]
             )

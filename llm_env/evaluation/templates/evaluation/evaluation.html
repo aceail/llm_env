@@ -60,10 +60,82 @@
                     </div>
                 </div>
             </div>
-            <div class="card mb-3"><div class="card-header fw-bold">Image</div><div class="card-body"><div class="row">{% for url in display_image_urls %}<div class="col-md-4 mb-3 d-flex justify-content-center align-items-center"><img src="{{ url }}" class="img-fluid rounded img-thumbnail-clickable" alt="Evaluation Image"></div>{% empty %}<p class="text-center text-muted">표시할 이미지가 없습니다.</p>{% endfor %}</div></div></div>
-            <div class="card mb-3"><div class="card-header fw-bold">LLM Result</div><div class="card-body"><pre><code>{{ llm_result_formatted }}</code></pre></div></div>
-            
-            <form action="{% url 'submit_evaluation' selected_id %}" method="post"><div class="evaluation-box">{% csrf_token %}<div><label class="form-label">Agreement</label><div class="btn-group" role="group"><input type="radio" class="btn-check" name="agreement" id="agreement-o" value="O" autocomplete="off" required {% if user_evaluation.agreement == 'O' %}checked{% endif %}><label class="btn btn-outline-success" for="agreement-o">O</label><input type="radio" class="btn-check" name="agreement" id="agreement-x" value="X" autocomplete="off" required {% if user_evaluation.agreement == 'X' %}checked{% endif %}><label class="btn btn-outline-danger" for="agreement-x">X</label></div></div><div><label class="form-label">Quality</label><input type="hidden" name="quality" id="quality-rating" value="{{ user_evaluation.quality|default:'' }}" required><div class="rating-stars h4 m-0"><i class="fa-solid fa-star" data-value="1"></i><i class="fa-solid fa-star" data-value="2"></i><i class="fa-solid fa-star" data-value="3"></i><i class="fa-solid fa-star" data-value="4"></i><i class="fa-solid fa-star" data-value="5"></i></div></div><div class="flex-grow-1"><label class="form-label">Comment</label><input type="text" class="form-control" name="comment" placeholder="Comment" value="{{ user_evaluation.comment|default:'' }}"></div><div><label class="form-label d-block" style="opacity: 0;">.</label><button type="submit" class="btn btn-primary">Submit</button></div></div></form>
+            <form action="{% url 'submit_evaluation' selected_id %}" method="post">
+                <div class="evaluation-box">
+                    {% csrf_token %}
+                    <div>
+                        <label class="form-label">Agreement</label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="agreement" id="agreement-o" value="O" autocomplete="off" required {% if user_evaluation.agreement == 'O' %}checked{% endif %}>
+                            <label class="btn btn-outline-success" for="agreement-o">O</label>
+                            <input type="radio" class="btn-check" name="agreement" id="agreement-x" value="X" autocomplete="off" required {% if user_evaluation.agreement == 'X' %}checked{% endif %}>
+                            <label class="btn btn-outline-danger" for="agreement-x">X</label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Quality</label>
+                        <input type="hidden" name="quality" id="quality-rating" value="{{ user_evaluation.quality|default:'' }}" required>
+                        <div class="rating-stars h4 m-0">
+                            <i class="fa-solid fa-star" data-value="1"></i>
+                            <i class="fa-solid fa-star" data-value="2"></i>
+                            <i class="fa-solid fa-star" data-value="3"></i>
+                            <i class="fa-solid fa-star" data-value="4"></i>
+                            <i class="fa-solid fa-star" data-value="5"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">병변위치(Vessel)</label>
+                        <input type="text" class="form-control" name="lesion_vessel" placeholder="Vessel" value="{{ user_evaluation.lesion_vessel|default:'' }}">
+                    </div>
+                    <div>
+                        <label class="form-label">병변위치(Anatomic)</label>
+                        <input type="text" class="form-control" name="lesion_anatomic" placeholder="Anatomic" value="{{ user_evaluation.lesion_anatomic|default:'' }}">
+                    </div>
+                    <div class="flex-grow-1">
+                        <label class="form-label">Comment</label>
+                        <input type="text" class="form-control" name="comment" placeholder="Comment" value="{{ user_evaluation.comment|default:'' }}">
+                    </div>
+                    <div>
+                        <label class="form-label d-block" style="opacity: 0;">.</label>
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                </div>
+            </form>
+
+            <div class="accordion mb-3" id="detailAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingImage">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseImage" aria-expanded="false" aria-controls="collapseImage">
+                            Image
+                        </button>
+                    </h2>
+                    <div id="collapseImage" class="accordion-collapse collapse" aria-labelledby="headingImage" data-bs-parent="#detailAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                {% for url in display_image_urls %}
+                                    <div class="col-md-4 mb-3 d-flex justify-content-center align-items-center">
+                                        <img src="{{ url }}" class="img-fluid rounded img-thumbnail-clickable" alt="Evaluation Image">
+                                    </div>
+                                {% empty %}
+                                    <p class="text-center text-muted">표시할 이미지가 없습니다.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingLLM">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLLM" aria-expanded="false" aria-controls="collapseLLM">
+                            LLM Result
+                        </button>
+                    </h2>
+                    <div id="collapseLLM" class="accordion-collapse collapse" aria-labelledby="headingLLM" data-bs-parent="#detailAccordion">
+                        <div class="accordion-body">
+                            <pre><code>{{ llm_result_formatted }}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             {% else %}
             <div class="d-flex justify-content-center align-items-center" style="min-height: 50vh;"><div class="text-center p-5 bg-light rounded"><h2>데이터가 없습니다.</h2><p class="text-muted">CSV 파일을 업로드하거나 목록에서 항목을 선택해주세요.</p></div></div>

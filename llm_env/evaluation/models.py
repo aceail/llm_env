@@ -16,6 +16,8 @@ class Evaluation(models.Model):
     agreement = models.CharField(max_length=1, choices=[('O', 'O'), ('X', 'X')])
     quality = models.IntegerField()  # 1점에서 5점까지 저장
     comment = models.TextField(blank=True) # 코멘트는 비어있을 수 있음
+    lesion_vessel = models.CharField(max_length=255, blank=True)
+    lesion_anatomic = models.CharField(max_length=255, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
 
