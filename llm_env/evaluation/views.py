@@ -1,21 +1,17 @@
 from django.shortcuts import get_object_or_404, render
-from django.contrib.auth.decorators import login_required # 추가
-from inference.models import InferenceResult
+from django.contrib.auth.decorators import login_required  # 로그인 여부 확인
 from django.views.decorators.http import require_POST
-from django.core.paginator import Paginator # Paginator 임포트
-from django.shortcuts import render, get_object_or_404, redirect
-from inference.models import InferenceResult
 from django.core.paginator import Paginator
-from django.views.decorators.http import require_POST
-from django.conf import settings # settings 임포트
-import os # os 임포트
+from django.conf import settings  # settings 임포트
+from django.http import HttpResponse
+from inference.models import InferenceResult
+from .models import Evaluation  # 방금 만든 Evaluation 모델을 임포트합니다.
+from django.db.models import Case, When, Value, IntegerField
+import os  # os 임포트
 import json
 import csv
 import io
 import zipfile
-from .models import Evaluation # 방금 만든 Evaluation 모델을 임포트합니다.
-from django.contrib.auth.decorators import login_required # 로그인 여부 확인
-from django.db.models import Case, When, Value, IntegerField
 
 @login_required # 추가
 def evaluation_view(request, pk=None):
