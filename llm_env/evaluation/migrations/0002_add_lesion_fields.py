@@ -7,13 +7,14 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name='evaluation',
-            name='lesion_vessel',
-            field=models.CharField(max_length=255, blank=True),
+            model_name="evaluation",
+            name="lesion_vessel",
+            field=models.CharField(max_length=255, blank=True, default=""),
         ),
         migrations.AddField(
-            model_name='evaluation',
-            name='lesion_anatomic',
-            field=models.CharField(max_length=255, blank=True),
+            model_name="evaluation",
+            name="lesion_anatomic",
+            field=models.CharField(max_length=255, blank=True, default=""),
         ),
     ]
+
