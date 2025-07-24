@@ -8,8 +8,8 @@ import pydicom
 from PIL import Image
 from tqdm import tqdm
 
-from CT_Preprocessing import PreprocessingCTImage as pp
-from utils import draw_overlay_cti
+from .CT_Preprocessing import PreprocessingCTImage as pp
+from .utils import draw_overlay_cti
 
 
 def normalize_to_8bit(array: np.ndarray) -> np.ndarray:

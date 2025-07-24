@@ -21,11 +21,11 @@ from matplotlib.lines import Line2D
 from matplotlib.font_manager import FontProperties
 from collections.abc import Iterable
 
-from CT_Preprocessing import PreprocessingCTImage as pp
-from CT_Preprocessing import window_image, normalize_array
+from .CT_Preprocessing import PreprocessingCTImage as pp
+from .CT_Preprocessing import window_image, normalize_array
 
 
-from Visualization import plot_settings, ROUND_SQAURE
+from .Visualization import plot_settings, ROUND_SQAURE
 
 
 
