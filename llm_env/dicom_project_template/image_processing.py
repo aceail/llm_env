@@ -31,10 +31,16 @@ def dicom_to_png(path: Path, save_path: Path) -> None:
 
 
 def non_mask(dcm_path: Path, dir_path: Path) -> None:
-    """Save a non-masked overlay image for a given DICOM."""
+    """Save a non-masked overlay image for a given DICOM.
+
+    The image is skull stripped so that only the brain region is drawn.
+    """
 
     image_sitk = pp.read_dicom(str(dcm_path))
-    image_np = pp.to_numpy(image_sitk)
+    # Perform skull stripping using gantryRemoval which returns the
+    # skull stripped image when ``return_np`` is ``False``.
+    stripped_sitk = pp.gantryRemoval(image_sitk)
+    image_np = pp.to_numpy(stripped_sitk)
     total_region = np.zeros_like(image_np)
     draw_fig, _, _, _ = draw_overlay_cti(image_np, total_region)
     draw_fig = draw_fig.astype(np.uint8)[:, :, :3]
