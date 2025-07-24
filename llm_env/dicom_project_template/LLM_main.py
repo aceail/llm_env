@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
 from .dataset_utils import _collection_path
 from .file_utils import extract_zip
@@ -40,8 +41,17 @@ def run_jlk_solutions(non_mask_dir: Path, item: Path) -> list[dict]:
     return results
 
 
-def main(zip_file) -> None:
-    """Example main routine."""
+def main(zip_file, output_root: str | Path = "/media/dicom_outputs") -> None:
+    """Run the DICOM to PNG pipeline and JLK solutions.
+
+    Parameters
+    ----------
+    zip_file : str | Path
+        Path to the uploaded zip file.
+    output_root : str | Path, optional
+        Directory under which the output images will be stored. Defaults to
+        ``/media/dicom_outputs``.
+    """
 
     zip_path = Path(zip_file)
     extract_path = extract_zip(zip_path)
@@ -49,8 +59,13 @@ def main(zip_file) -> None:
         return
 
     df = _collection_path(extract_path)
-    output_dir = Path(f"{Path(zip_file).stem}_output_images")
-    convert_all_dicom_to_png_parallel(df, output_dir)
+
+    output_root = Path(output_root)
+    os.makedirs(output_root, exist_ok=True)
+    output_dir = output_root / f"{zip_path.stem}_output_images"
+
+    if not output_dir.exists():
+        convert_all_dicom_to_png_parallel(df, output_dir)
 
     AI_result = []
     for item in tqdm(list(output_dir.iterdir())[:3]):
@@ -61,4 +76,7 @@ def main(zip_file) -> None:
 
     return AI_result
 if __name__ == "__main__":  # pragma: no cover - manual execution
-    rr = main("/home/yjpark/llm_env/dicom_project_template/DCM_REQUEST_2025-07-23-05-16-58-465027_0.zip")
+    rr = main(
+        "/home/yjpark/llm_env/dicom_project_template/DCM_REQUEST_2025-07-23-05-16-58-465027_0.zip"
+    )
+
