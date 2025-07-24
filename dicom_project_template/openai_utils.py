@@ -15,6 +15,7 @@ try:  # Optional dependency
 except Exception:  # pragma: no cover - openai might not be available
     OpenAI = None
 
+
 if OpenAI:
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 else:  # pragma: no cover - when openai is unavailable

@@ -83,13 +83,20 @@ def process_row(row: pd.Series, output_dir: Path) -> None:
     os.makedirs(dir_path, exist_ok=True)
 
     if "NCCT" in row["modality"]:
+        non_mask_path = dir_path / "Non_mask" / "non_mask.png"
+        if non_mask_path.exists():
+            return
         non_mask(row["file"], dir_path)
+
     else:
-        for idx, f in enumerate(row["JLK_AI_full_dcm"]):
-            sub_path = dir_path / row["modality"]
-            os.makedirs(sub_path, exist_ok=True)
-            fname = Path(f).stem + f"_{idx}.png"
+        sub_path = dir_path / row["modality"]
+        os.makedirs(sub_path, exist_ok=True)
+
+        for f in row["JLK_AI_full_dcm"]:
+            fname = Path(f).with_suffix(".png").name  # idx 제거, 확장자만 변경
             save_path = sub_path / fname
+            if save_path.exists():
+                continue
             dicom_to_png(Path(f), save_path)
 
 
