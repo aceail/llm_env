@@ -239,7 +239,7 @@ def download_paired_results(request):
                         arcname = os.path.join("images", os.path.basename(local_path))
                         zip_file.write(local_path, arcname=arcname)
 
-        zip_file.writestr("evaluations.csv", csv_buffer.getvalue())
+        zip_file.writestr("evaluations.csv", csv_buffer.getvalue().encode('utf-8-sig'))
 
     buffer.seek(0)
     response = HttpResponse(buffer.getvalue(), content_type="application/zip")
