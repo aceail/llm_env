@@ -127,7 +127,7 @@ def evaluation_detail(request, pk):
             for fname in sorted(os.listdir(img_dir)):
                 if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                     local_path = os.path.join(img_dir, fname)
-                    if local_path.startswith(settings.MEDIA_ROOT):
+                    if local_path.startswith(str(settings.MEDIA_ROOT)):
                         relative_path = os.path.relpath(local_path, settings.MEDIA_ROOT)
                         url = os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/")
                         display_image_urls.append(url)
