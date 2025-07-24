@@ -24,6 +24,7 @@ import os
 import shutil
 import uuid
 from django.conf import settings
+import threading
 import logging # 디버깅을 위한 logging 라이브러리 임포트
 from django.db.models import Case, When, Value, IntegerField
 from .models import InferenceResult
@@ -157,40 +158,41 @@ class UploadZipView(View):
             for chunk in uploaded.chunks():
                 dest.write(chunk)
 
-        results = []
-        print(saved_path)
-        if dicom_llm_main:
-            try:
-                results = dicom_llm_main(saved_path) or []
-            except Exception as e:  # pragma: no cover - runtime safeguard
-                logger.error("LLM_main execution failed: %s", e, exc_info=True)
+        def run_inference(path):
+            results = []
+            if dicom_llm_main:
+                try:
+                    results = dicom_llm_main(path) or []
+                except Exception as e:  # pragma: no cover - runtime safeguard
+                    logger.error("LLM_main execution failed: %s", e, exc_info=True)
 
-        # cleanup extracted data regardless of success
-        extract_dir = Path(saved_path).with_suffix("")
-        output_dir = Path(settings.BASE_DIR) / f"{Path(saved_path).stem}_output_images"
-        shutil.rmtree(extract_dir, ignore_errors=True)
-        shutil.rmtree(output_dir, ignore_errors=True)
+            extract_dir = Path(path).with_suffix("")
+            output_dir = Path(settings.BASE_DIR) / f"{Path(path).stem}_output_images"
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            shutil.rmtree(output_dir, ignore_errors=True)
 
-        for item in results:
-            try:
-                solution_name = item.get('solution', '')
-                output_raw = item.get('result', {})
-                if isinstance(output_raw, str):
-                    try:
-                        output = json.loads(output_raw)
-                    except json.JSONDecodeError:
-                        output = {}
-                else:
-                    output = output_raw
+            for item in results:
+                try:
+                    solution_name = item.get('solution', '')
+                    output_raw = item.get('result', {})
+                    if isinstance(output_raw, str):
+                        try:
+                            output = json.loads(output_raw)
+                        except json.JSONDecodeError:
+                            output = {}
+                    else:
+                        output = output_raw
 
-                InferenceResult.objects.create(
-                    solution_name=solution_name,
-                    system_prompt="기존과 동일",
-                    user_prompt="기존과 동일",
-                    llm_output=output,
-                )
-            except Exception as e:
-                logger.error("Failed to save result: %s", e, exc_info=True)
+                    InferenceResult.objects.create(
+                        solution_name=solution_name,
+                        system_prompt="기존과 동일",
+                        user_prompt="기존과 동일",
+                        llm_output=output,
+                    )
+                except Exception as e:
+                    logger.error("Failed to save result: %s", e, exc_info=True)
+
+        threading.Thread(target=run_inference, args=(saved_path,)).start()
 
         return redirect('evaluation')
 
