@@ -112,6 +112,28 @@ def evaluation_detail(request, pk):
                 except ValueError:
                     display_image_urls.append(path)
 
+    # 추가: llm_output 내 디렉토리의 이미지도 표시
+    llm_dirs = []
+    if isinstance(selected_item.llm_output, dict):
+        if 'non_mask_dir' in selected_item.llm_output:
+            llm_dirs.append(selected_item.llm_output.get('non_mask_dir'))
+        if 'ai_dir' in selected_item.llm_output:
+            llm_dirs.append(selected_item.llm_output.get('ai_dir'))
+
+    for img_dir in llm_dirs:
+        if not img_dir:
+            continue
+        if os.path.isdir(img_dir):
+            for fname in sorted(os.listdir(img_dir)):
+                if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    local_path = os.path.join(img_dir, fname)
+                    if local_path.startswith(settings.MEDIA_ROOT):
+                        relative_path = os.path.relpath(local_path, settings.MEDIA_ROOT)
+                        url = os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/")
+                        display_image_urls.append(url)
+                    else:
+                        display_image_urls.append(local_path)
+
     llm_result_formatted = json.dumps(selected_item.llm_output, indent=4, ensure_ascii=False)
 
     user_evaluation = None
