@@ -205,6 +205,14 @@ class UploadZipView(View):
                     else:
                         output = output_raw
 
+                    # Preserve image directory information so the evaluation page
+                    # can display generated images.
+                    if isinstance(output, dict):
+                        if item.get('non_mask_dir'):
+                            output['non_mask_dir'] = item.get('non_mask_dir')
+                        if item.get('ai_dir'):
+                            output['ai_dir'] = item.get('ai_dir')
+
                     output = update_paths(output)
 
                     InferenceResult.objects.create(
