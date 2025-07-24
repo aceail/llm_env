@@ -29,9 +29,18 @@ from django.db.models import Case, When, Value, IntegerField
 from .models import InferenceResult
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
+from pathlib import Path
+import sys
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO) # INFO 레벨 이상의 로그를 출력하도록 설정
+
+# Add dicom_project_template path for zip processing
+sys.path.append(str(Path(settings.BASE_DIR).parent / 'dicom_project_template'))
+try:
+    from LLM_main import main as dicom_llm_main
+except Exception:  # pragma: no cover - import may fail during tests without package
+    dicom_llm_main = None
 
 @method_decorator(login_required, name='dispatch')
 class UploadCsvView(View):
@@ -129,6 +138,61 @@ class UploadCsvView(View):
         except Exception as e:
             logger.error(f"파일 처리 중 예측하지 못한 최상위 오류 발생: {e}", exc_info=True)
             return render(request, 'inference/upload_csv.html', {'error': f'파일 처리 중 예측하지 못한 오류 발생: {e}'})
+
+        return redirect('evaluation')
+
+@method_decorator(login_required, name='dispatch')
+class UploadZipView(View):
+    """Handle ZIP uploads and run dicom processing"""
+
+    def get(self, request, *args, **kwargs):
+        return render(request, 'inference/upload_zip.html')
+
+    def post(self, request, *args, **kwargs):
+        uploaded = request.FILES.get('zip_file')
+        if not uploaded:
+            return render(request, 'inference/upload_zip.html', {'error': '파일을 업로드해주세요.'})
+
+        upload_dir = os.path.join(settings.MEDIA_ROOT, 'zip_uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        saved_path = os.path.join(upload_dir, uploaded.name)
+        with open(saved_path, 'wb+') as dest:
+            for chunk in uploaded.chunks():
+                dest.write(chunk)
+
+        results = []
+        if dicom_llm_main:
+            try:
+                results = dicom_llm_main(saved_path) or []
+            except Exception as e:  # pragma: no cover - runtime safeguard
+                logger.error("LLM_main execution failed: %s", e, exc_info=True)
+
+        # cleanup extracted data regardless of success
+        extract_dir = Path(saved_path).with_suffix("")
+        output_dir = Path(settings.BASE_DIR) / f"{Path(saved_path).stem}_output_images"
+        shutil.rmtree(extract_dir, ignore_errors=True)
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+        for item in results:
+            try:
+                solution_name = item.get('solution', '')
+                output_raw = item.get('result', {})
+                if isinstance(output_raw, str):
+                    try:
+                        output = json.loads(output_raw)
+                    except json.JSONDecodeError:
+                        output = {}
+                else:
+                    output = output_raw
+
+                InferenceResult.objects.create(
+                    solution_name=solution_name,
+                    system_prompt="기존과 동일",
+                    user_prompt="기존과 동일",
+                    llm_output=output,
+                )
+            except Exception as e:
+                logger.error("Failed to save result: %s", e, exc_info=True)
 
         return redirect('evaluation')
 

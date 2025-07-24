@@ -41,6 +41,7 @@
                 <span class="me-3">Welcome, {{ user.username }}!</span>
                 <a href="{% url 'inference:inference_form' %}" class="btn btn-sm btn-secondary me-2">Inference Page</a>
                 <a href="{% url 'inference:upload_csv' %}" class="btn btn-sm btn-info me-2">Upload CSV</a>
+                <a href="{% url 'inference:upload_zip' %}" class="btn btn-sm btn-warning me-2">Upload ZIP</a>
                 {% if user.is_staff %}
                     <a href="{% url 'download_paired_results' %}" class="btn btn-sm btn-success me-2">Download Data</a>
                 {% endif %}
