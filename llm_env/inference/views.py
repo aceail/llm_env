@@ -158,6 +158,11 @@ class UploadZipView(View):
             for chunk in uploaded.chunks():
                 dest.write(chunk)
 
+        # Also keep a copy under MEDIA_ROOT/uploads as requested
+        uploads_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
+        os.makedirs(uploads_dir, exist_ok=True)
+        shutil.copy2(saved_path, os.path.join(uploads_dir, uploaded.name))
+
         def run_inference(path):
             results = []
             if dicom_llm_main:
@@ -168,8 +173,25 @@ class UploadZipView(View):
 
             extract_dir = Path(path).with_suffix("")
             output_dir = Path(settings.BASE_DIR) / f"{Path(path).stem}_output_images"
+
+            media_output_root = Path(settings.MEDIA_ROOT) / "dicom_outputs"
+            os.makedirs(media_output_root, exist_ok=True)
+            moved_output_dir = media_output_root / output_dir.name
+            if output_dir.exists():
+                if moved_output_dir.exists():
+                    shutil.rmtree(moved_output_dir, ignore_errors=True)
+                shutil.move(str(output_dir), moved_output_dir)
+
             shutil.rmtree(extract_dir, ignore_errors=True)
-            shutil.rmtree(output_dir, ignore_errors=True)
+
+            def update_paths(data):
+                if isinstance(data, dict):
+                    return {k: update_paths(v) for k, v in data.items()}
+                if isinstance(data, list):
+                    return [update_paths(v) for v in data]
+                if isinstance(data, str):
+                    return data.replace(str(output_dir), str(moved_output_dir))
+                return data
 
             for item in results:
                 try:
@@ -182,6 +204,8 @@ class UploadZipView(View):
                             output = {}
                     else:
                         output = output_raw
+
+                    output = update_paths(output)
 
                     InferenceResult.objects.create(
                         solution_name=solution_name,
