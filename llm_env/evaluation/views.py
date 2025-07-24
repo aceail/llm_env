@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404, render, redirect
-from django.contrib.auth.decorators import login_required  # 로그인 여부 확인
+from django.contrib.auth.decorators import login_required, user_passes_test  # 로그인 여부 확인 및 권한 확인
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.conf import settings  # settings 임포트
@@ -178,8 +178,13 @@ def submit_evaluation(request, pk):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_staff)
 def download_paired_results(request):
-    """Download all inference results and their evaluations as a zip file."""
+    """Download all inference results and their evaluations as a zip file.
+
+    Only staff users can access this view so that administrators are able to
+    download results produced by every user.
+    """
     evaluations = Evaluation.objects.select_related("inference_result", "evaluator")
 
     buffer = io.BytesIO()
@@ -207,7 +212,27 @@ def download_paired_results(request):
 
         for eva in evaluations:
             ir = eva.inference_result
-            image_urls = ";".join(ir.image_urls) if ir.image_urls else ""
+            csv_image_paths = []
+
+            if ir.image_urls:
+                for url in ir.image_urls:
+                    if url.startswith("http://") or url.startswith("https://"):
+                        csv_image_paths.append(url)
+                        continue
+
+                    local_path = url
+                    if url.startswith(settings.MEDIA_URL):
+                        relative = url[len(settings.MEDIA_URL):].lstrip("/")
+                        local_path = os.path.join(settings.MEDIA_ROOT, relative)
+
+                    if os.path.exists(local_path):
+                        filename = os.path.basename(local_path)
+                        arcname = os.path.join("images", filename)
+                        zip_file.write(local_path, arcname=arcname)
+                        csv_image_paths.append(os.path.join("images", filename))
+                    else:
+                        csv_image_paths.append(url)
+
             writer.writerow(
                 [
                     eva.id,
@@ -216,7 +241,7 @@ def download_paired_results(request):
                     ir.solution_name,
                     ir.system_prompt,
                     ir.user_prompt,
-                    image_urls,
+                    ";".join(csv_image_paths),
                     json.dumps(ir.llm_output, ensure_ascii=False),
                     eva.agreement,
                     eva.quality,
@@ -226,18 +251,6 @@ def download_paired_results(request):
                     eva.created_at.isoformat(),
                 ]
             )
-
-            if ir.image_urls:
-                for url in ir.image_urls:
-                    if url.startswith("http://") or url.startswith("https://"):
-                        continue
-                    local_path = url
-                    if url.startswith(settings.MEDIA_URL):
-                        relative = url[len(settings.MEDIA_URL) :].lstrip("/")
-                        local_path = os.path.join(settings.MEDIA_ROOT, relative)
-                    if os.path.exists(local_path):
-                        arcname = os.path.join("images", os.path.basename(local_path))
-                        zip_file.write(local_path, arcname=arcname)
 
         zip_file.writestr("evaluations.csv", csv_buffer.getvalue().encode('utf-8-sig'))
 
