@@ -58,7 +58,8 @@ def JLK_ICH(mask_path: Path, path: Path) -> Optional[str]:
         desc_nomask = (
             "non_mask : Summary_0000_0과 동일한 영상이며, 붉은색 마스크를 제거한 버전입니다. (정확한 비교를 위해 mask만 제외되었습니다.)"
         )
-        img_nomask = safe_load_image(str(mask_path / "non_mask.png"))
+        nomask_files = sorted(mask_path.glob("non_mask*.png"))
+        img_nomask = safe_load_image(str(nomask_files[0])) if nomask_files else None
         if img_nomask:
             content_blocks.append({"type": "input_text", "text": desc_nomask})
             content_blocks.append({"type": "input_image", "image_url": img_nomask})
@@ -171,7 +172,8 @@ def JLK_CTI(mask_path: Path, path: Path) -> Optional[str]:
         desc_nomask = (
             "non_mask : JLK-CTI Summary_0000과 동일한 영상이며, 붉은색 마스크를 제거한 버전입니다. (정확한 비교를 위해 mask만 제외되었습니다.)"
         )
-        img_nomask = safe_load_image(str(mask_path / "non_mask.png"))
+        nomask_files = sorted(mask_path.glob("non_mask*.png"))
+        img_nomask = safe_load_image(str(nomask_files[0])) if nomask_files else None
         if img_nomask:
             content_blocks.append({"type": "input_text", "text": desc_nomask})
             content_blocks.append({"type": "input_image", "image_url": img_nomask})
@@ -220,7 +222,8 @@ def JLK_WMHC(mask_path: Path, path: Path) -> Optional[str]:
         desc_nomask = (
             "non_mask : Summary_0000_0과 동일한 영상이며, 파란색 마스크를 제거한 버전입니다. (정확한 비교를 위해 mask만 제외되었습니다.)"
         )
-        img_nomask = safe_load_image(str(mask_path / "non_mask.png"))
+        nomask_files = sorted(mask_path.glob("non_mask*.png"))
+        img_nomask = safe_load_image(str(nomask_files[0])) if nomask_files else None
         if img_nomask:
             content_blocks.append({"type": "input_text", "text": desc_nomask})
             content_blocks.append({"type": "input_image", "image_url": img_nomask})
@@ -268,7 +271,8 @@ def JLK_CVL(mask_path: Path, path: Path) -> Optional[str]:
         desc_nomask = (
             "non_mask : Summary_0000_0과 동일한 영상이며, 마스크를 제거한 버전입니다. (정확한 비교를 위해 mask만 제외되었습니다.)"
         )
-        img_nomask = safe_load_image(str(mask_path / "non_mask.png"))
+        nomask_files = sorted(mask_path.glob("non_mask*.png"))
+        img_nomask = safe_load_image(str(nomask_files[0])) if nomask_files else None
         if img_nomask:
             content_blocks.append({"type": "input_text", "text": desc_nomask})
             content_blocks.append({"type": "input_image", "image_url": img_nomask})
