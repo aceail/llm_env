@@ -101,16 +101,22 @@ def evaluation_detail(request, pk):
 
     display_image_urls = []
     if selected_item.image_urls and isinstance(selected_item.image_urls, list):
-        for path in selected_item.image_urls:
+        for image_path in selected_item.image_urls:
             # URL인 경우와 로컬 파일 경로인 경우를 모두 처리
-            if path.startswith('http://') or path.startswith('https://') or path.startswith('/media/'):
-                 display_image_urls.append(path)
+            if image_path.startswith("http://") or image_path.startswith("https://") or image_path.startswith(settings.MEDIA_URL):
+                display_image_urls.append(image_path)
             else:
-                try:
-                    relative_path = os.path.relpath(path, settings.MEDIA_ROOT)
-                    display_image_urls.append(os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/"))
-                except ValueError:
-                    display_image_urls.append(path)
+                if os.path.isabs(image_path):
+                    # MEDIA_ROOT 하위에 저장된 절대 경로라면 MEDIA_URL로 변환
+                    if image_path.startswith(str(settings.MEDIA_ROOT)):
+                        relative_path = os.path.relpath(image_path, settings.MEDIA_ROOT)
+                        url = os.path.join(settings.MEDIA_URL, relative_path).replace("\\", "/")
+                        display_image_urls.append(url)
+                    else:
+                        display_image_urls.append(image_path)
+                else:
+                    # 상대 경로는 MEDIA_URL 기준 경로로 변환
+                    display_image_urls.append(os.path.join(settings.MEDIA_URL, image_path).replace("\\", "/"))
 
     # 추가: llm_output 내 디렉토리의 이미지도 표시
     llm_dirs = []
