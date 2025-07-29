@@ -30,7 +30,12 @@ def dicom_to_png(path: Path, save_path: Path) -> None:
     Image.fromarray(arr).save(save_path)
 
 
-def non_mask(dcm_path: Path, dir_path: Path, identifier: str | None = None) -> None:
+def non_mask(
+    dcm_path: Path,
+    dir_path: Path,
+    identifier: str | None = None,
+    output_root: Path | None = None,
+) -> None:
     """Save a non-masked overlay image for a given DICOM.
 
     The image is skull stripped so that only the brain region is drawn.  When
@@ -60,6 +65,11 @@ def non_mask(dcm_path: Path, dir_path: Path, identifier: str | None = None) -> N
     file_name = f"non_mask{suffix}.png"
     plt.savefig(non_mask_path / file_name, bbox_inches="tight", pad_inches=0, facecolor="black")
 
+    # Optionally save a copy under the provided output root
+    if output_root is not None:
+        os.makedirs(output_root, exist_ok=True)
+        plt.savefig(Path(output_root) / file_name, bbox_inches="tight", pad_inches=0, facecolor="black")
+
 
 def convert_all_dicom_to_png(grouped_df: pd.DataFrame, output_dir: Path) -> None:
     """Convert all DICOMs referenced in ``grouped_df`` into PNG images."""
@@ -74,7 +84,7 @@ def convert_all_dicom_to_png(grouped_df: pd.DataFrame, output_dir: Path) -> None
 
         if "NCCT" in row["modality"]:
             identifier = Path(row["file"]).stem
-            non_mask(row["file"], dir_path, identifier)
+            non_mask(row["file"], dir_path, identifier, output_dir.parent)
         else:
             for idx, f in enumerate(row["JLK_AI_full_dcm"]):
                 sub_path = dir_path / row["modality"]
@@ -98,7 +108,7 @@ def process_row(row: pd.Series, output_dir: Path) -> None:
         non_mask_path = dir_path / "Non_mask" / f"non_mask_{identifier}.png"
         if non_mask_path.exists():
             return
-        non_mask(row["file"], dir_path, identifier)
+        non_mask(row["file"], dir_path, identifier, output_dir.parent)
 
     else:
         sub_path = dir_path / row["modality"]
