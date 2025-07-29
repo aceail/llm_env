@@ -1,6 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -93,10 +94,11 @@ def convert_all_dicom_to_png(grouped_df: pd.DataFrame, output_dir: Path) -> None
             prefix = f"{output_dir.name}_{dir_path.name}"
             non_mask(row["file"], dir_path, identifier, output_dir.parent, prefix)
         else:
-            for idx, f in enumerate(row["JLK_AI_full_dcm"]):
+            for f in row["JLK_AI_full_dcm"]:
                 sub_path = dir_path / row["modality"]
                 os.makedirs(sub_path, exist_ok=True)
-                fname = Path(f).stem + f"_{idx}.png"
+                identifier = uuid.uuid4().hex[:8]
+                fname = f"{Path(f).stem}_{identifier}.png"
                 save_path = sub_path / fname
                 dicom_to_png(Path(f), save_path)
 
@@ -123,7 +125,8 @@ def process_row(row: pd.Series, output_dir: Path) -> None:
         os.makedirs(sub_path, exist_ok=True)
 
         for f in row["JLK_AI_full_dcm"]:
-            fname = Path(f).with_suffix(".png").name  # idx 제거, 확장자만 변경
+            identifier = uuid.uuid4().hex[:8]
+            fname = f"{Path(f).stem}_{identifier}.png"
             save_path = sub_path / fname
             if save_path.exists():
                 continue

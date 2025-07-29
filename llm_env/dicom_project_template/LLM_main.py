@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
-import uuid
-import re
 
 from .dataset_utils import _collection_path
 from .file_utils import extract_zip
@@ -16,21 +14,11 @@ from tqdm import tqdm
 
 
 def run_jlk_solutions(non_mask_dir: Path, item: Path) -> list[dict]:
-    def add_identifier(dir_path: Path) -> None:
-        if not dir_path or not dir_path.is_dir():
-            return
-        for idx, img in enumerate(sorted(dir_path.glob("*.png"))):
-            if re.search(r"_[0-9a-f]{8}\.png$", img.name):
-                continue
-            new_name = f"{img.stem}_{idx}_{uuid.uuid4().hex[:8]}{img.suffix}"
-            img.rename(img.with_name(new_name))
-
     def run(name: str, func):
         ai_dir = next(
             (p for p in item.iterdir() if p.is_dir() and name in p.name), None
         )
         result = func(non_mask_dir, ai_dir)
-        add_identifier(ai_dir)
         return {
             "solution": name,
             "result": result,

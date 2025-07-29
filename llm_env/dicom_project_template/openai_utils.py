@@ -42,6 +42,15 @@ def safe_load_image(image_path: str) -> Optional[str]:
         return None
 
 
+def load_first_matching(directory: Path, pattern: str) -> Optional[str]:
+    """Return base64 of the first PNG matching ``pattern`` in ``directory``."""
+
+    files = sorted(directory.glob(pattern))
+    if not files:
+        return None
+    return safe_load_image(str(files[0]))
+
+
 def JLK_ICH(mask_path: Path, path: Path) -> Optional[str]:
     try:
 
@@ -50,7 +59,7 @@ def JLK_ICH(mask_path: Path, path: Path) -> Optional[str]:
         desc_masked = (
             "Summary_0000_0 : JLK ICH는 비조영 CT에서 모든 유형의 뇌출혈을 탐지하는 AI 알고리즘입니다. 뇌출혈 의심 영역은 붉은색 마스크로 표시되며, 환자 단위의 뇌출혈 확률값과 전체 뇌영역에서의 뇌출혈 부피 정보가 함께 제공됩니다."
         )
-        img_masked = safe_load_image(str(path / "Summary_0000.png"))
+        img_masked = load_first_matching(path, "Summary_0000*.png")
         if img_masked:
             content_blocks.append({"type": "input_text", "text": desc_masked})
             content_blocks.append({"type": "input_image", "image_url": img_masked})
@@ -106,14 +115,14 @@ def JLK_CTL(mask_path: Path, path: Path) -> Optional[str]:
             "LVO 확률에 따라 0–10 (unlikely), 11–20 (less likely), 21–50 (possible), and 51–100 (suggestive)로 구분하고 있음. "
             "HU에 차이가 있어도 차이가 크지 않을 경우, LVO 확률이 낮을 수 있음."
         )
-        img_0 = safe_load_image(str(path / "JLK-CTL Summary_0000.png"))
+        img_0 = load_first_matching(path, "JLK-CTL Summary_0000*.png")
         if img_0:
             content_blocks.append({"type": "input_text", "text": desc_0})
             content_blocks.append({"type": "input_image", "image_url": img_0})
 
 
         desc_1 = "JLK-CTL Summary_0001: NCCT 영상을 분석해서 나온 ASPECT 점수 결과와 영역별 HU 의 평균"
-        img_1 = safe_load_image(str(path / "JLK-CTL Summary_0001.png"))
+        img_1 = load_first_matching(path, "JLK-CTL Summary_0001*.png")
         if img_1:
             content_blocks.append({"type": "input_text", "text": desc_1})
             content_blocks.append({"type": "input_image", "image_url": img_1})
@@ -122,7 +131,7 @@ def JLK_CTL(mask_path: Path, path: Path) -> Optional[str]:
             "JLK-CTL Summary_0002: LVO 예측 알고리즘인 JLK CTL 이 LVO를 예측하는데 사용된 feature importance 와 "
             "NIHSS 를 고려했을 때 확률, ASPECT 영역의 net-water uptake 결과"
         )
-        img_2 = safe_load_image(str(path / "JLK-CTL Summary_0002.png"))
+        img_2 = load_first_matching(path, "JLK-CTL Summary_0002*.png")
         if img_2:
             content_blocks.append({"type": "input_text", "text": desc_2})
             content_blocks.append({"type": "input_image", "image_url": img_2})
@@ -164,7 +173,7 @@ def JLK_CTI(mask_path: Path, path: Path) -> Optional[str]:
         desc_masked = (
             "JLK-CTI Summary_0000: JLK CTI는 NCCT 기반 뇌경색 의심 영역을 탐지하는 AI 알고리즘입니다. 원본 영상 위에 병변 의심 영역을 마스크로 표현하며, 마스크 색상은 병변이 없는 반대쪽 반구의 평균 HU와 비교하여 병변 쪽 voxel의 HU 감소 정도를 반영합니다."
         )
-        img_masked = safe_load_image(str(path / "JLK-CTI Summary_0000.png"))
+        img_masked = load_first_matching(path, "JLK-CTI Summary_0000*.png")
         if img_masked:
             content_blocks.append({"type": "input_text", "text": desc_masked})
             content_blocks.append({"type": "input_image", "image_url": img_masked})
@@ -214,7 +223,7 @@ def JLK_WMHC(mask_path: Path, path: Path) -> Optional[str]:
         desc_masked = (
             "Summary_0000_0 : JLK WMHC는 비조영 CT 기반 백질변성 탐지 AI 알고리즘입니다. 백질변성 의심 영역은 파란색 마스크로 표시되며, 여런 HU threshold 를 적용한 백질변성의 부피 정보를 제공합니다."
         )
-        img_masked = safe_load_image(str(path / "Summary_0000.png"))
+        img_masked = load_first_matching(path, "Summary_0000*.png")
         if img_masked:
             content_blocks.append({"type": "input_text", "text": desc_masked})
             content_blocks.append({"type": "input_image", "image_url": img_masked})
@@ -263,7 +272,7 @@ def JLK_CVL(mask_path: Path, path: Path) -> Optional[str]:
         desc_masked = (
             "JLK-CVL: Summary_0000_0 : JLK CVL는 비조영 CT 기반 만성 혈관성 병변 탐지 AI 알고리즘입니다. 작은 열공 뇌경색이 아닌, 피질이 침범되어 있거나 백질에 있는 큰 만성 뇌혈관질환 병변을 탐지합니다. 의심 영역은 HU의 평균값에 따라 노란색~빨간색 마스크로 표시됩니다. "
         )
-        img_masked = safe_load_image(str(path / "JLK-CTI Summary_0000.png"))
+        img_masked = load_first_matching(path, "JLK-CTI Summary_0000*.png")
         if img_masked:
             content_blocks.append({"type": "input_text", "text": desc_masked})
             content_blocks.append({"type": "input_image", "image_url": img_masked})
