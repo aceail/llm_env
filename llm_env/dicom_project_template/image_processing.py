@@ -30,10 +30,12 @@ def dicom_to_png(path: Path, save_path: Path) -> None:
     Image.fromarray(arr).save(save_path)
 
 
-def non_mask(dcm_path: Path, dir_path: Path) -> None:
+def non_mask(dcm_path: Path, dir_path: Path, identifier: str | None = None) -> None:
     """Save a non-masked overlay image for a given DICOM.
 
-    The image is skull stripped so that only the brain region is drawn.
+    The image is skull stripped so that only the brain region is drawn.  When
+    ``identifier`` is provided, the output filename is suffixed with it so that
+    multiple non-mask images can coexist within the same directory.
     """
 
     image_sitk = pp.read_dicom(str(dcm_path))
@@ -54,7 +56,9 @@ def non_mask(dcm_path: Path, dir_path: Path) -> None:
 
     non_mask_path = Path(dir_path) / "Non_mask"
     os.makedirs(non_mask_path, exist_ok=True)
-    plt.savefig(non_mask_path / "non_mask.png", bbox_inches="tight", pad_inches=0, facecolor="black")
+    suffix = f"_{identifier}" if identifier else ""
+    file_name = f"non_mask{suffix}.png"
+    plt.savefig(non_mask_path / file_name, bbox_inches="tight", pad_inches=0, facecolor="black")
 
 
 def convert_all_dicom_to_png(grouped_df: pd.DataFrame, output_dir: Path) -> None:
@@ -69,7 +73,8 @@ def convert_all_dicom_to_png(grouped_df: pd.DataFrame, output_dir: Path) -> None
         os.makedirs(dir_path, exist_ok=True)
 
         if "NCCT" in row["modality"]:
-            non_mask(row["file"], dir_path)
+            identifier = Path(row["file"]).stem
+            non_mask(row["file"], dir_path, identifier)
         else:
             for idx, f in enumerate(row["JLK_AI_full_dcm"]):
                 sub_path = dir_path / row["modality"]
@@ -89,10 +94,11 @@ def process_row(row: pd.Series, output_dir: Path) -> None:
     os.makedirs(dir_path, exist_ok=True)
 
     if "NCCT" in row["modality"]:
-        non_mask_path = dir_path / "Non_mask" / "non_mask.png"
+        identifier = Path(row["file"]).stem
+        non_mask_path = dir_path / "Non_mask" / f"non_mask_{identifier}.png"
         if non_mask_path.exists():
             return
-        non_mask(row["file"], dir_path)
+        non_mask(row["file"], dir_path, identifier)
 
     else:
         sub_path = dir_path / row["modality"]
