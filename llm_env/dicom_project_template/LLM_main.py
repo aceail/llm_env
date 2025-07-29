@@ -68,7 +68,7 @@ def main(zip_file, output_root: str | Path = "/media/dicom_outputs") -> None:
         convert_all_dicom_to_png_parallel(df, output_dir)
 
     AI_result = []
-    for item in tqdm(list(output_dir.iterdir())[:3]):
+    for item in tqdm(list(output_dir.iterdir())):
         if item.is_dir():
             non_mask_dir = item / "Non_mask"
             if non_mask_dir.exists() and any(non_mask_dir.iterdir()):
