@@ -209,12 +209,14 @@ def submit_evaluation(request, pk):
 @login_required
 @user_passes_test(lambda u: u.is_staff)
 def download_paired_results(request):
-    """Download all inference results and their evaluations as a zip file.
+    """Download all inference results and any associated evaluations as a zip
+    file.
 
-    Only staff users can access this view so that administrators are able to
-    download results produced by every user.
+    Unevaluated inference results are included with empty evaluation fields so
+    that administrators can download the entire dataset at once.
     """
-    evaluations = Evaluation.objects.select_related("inference_result", "evaluator")
+
+    results = InferenceResult.objects.prefetch_related("evaluations", "evaluations__evaluator")
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as zip_file:
@@ -239,10 +241,10 @@ def download_paired_results(request):
             ]
         )
 
-        for eva in evaluations:
-            ir = eva.inference_result
-            csv_image_paths = []
+        for ir in results:
+            associated_evaluations = list(ir.evaluations.all()) or [None]
 
+            csv_image_paths = []
             if ir.image_urls:
                 for url in ir.image_urls:
                     if url.startswith("http://") or url.startswith("https://"):
@@ -262,26 +264,27 @@ def download_paired_results(request):
                     else:
                         csv_image_paths.append(url)
 
-            writer.writerow(
-                [
-                    eva.id,
-                    eva.evaluator.username,
-                    ir.id,
-                    ir.solution_name,
-                    ir.system_prompt,
-                    ir.user_prompt,
-                    ";".join(csv_image_paths),
-                    json.dumps(ir.llm_output, ensure_ascii=False),
-                    eva.agreement,
-                    eva.quality,
-                    eva.comment,
-                    eva.lesion_vessel,
-                    eva.lesion_anatomic,
-                    eva.created_at.isoformat(),
-                ]
-            )
+            for eva in associated_evaluations:
+                writer.writerow(
+                    [
+                        eva.id if eva else "",
+                        eva.evaluator.username if eva else "",
+                        ir.id,
+                        ir.solution_name,
+                        ir.system_prompt,
+                        ir.user_prompt,
+                        ";".join(csv_image_paths),
+                        json.dumps(ir.llm_output, ensure_ascii=False),
+                        eva.agreement if eva else "",
+                        eva.quality if eva else "",
+                        eva.comment if eva else "",
+                        eva.lesion_vessel if eva else "",
+                        eva.lesion_anatomic if eva else "",
+                        eva.created_at.isoformat() if eva else "",
+                    ]
+                )
 
-        zip_file.writestr("evaluations.csv", csv_buffer.getvalue().encode('utf-8-sig'))
+        zip_file.writestr("evaluations.csv", csv_buffer.getvalue().encode("utf-8-sig"))
 
     buffer.seek(0)
     response = HttpResponse(buffer.getvalue(), content_type="application/zip")
