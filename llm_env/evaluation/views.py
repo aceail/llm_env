@@ -4,6 +4,8 @@ from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.conf import settings  # settings 임포트
 from django.http import HttpResponse
+from django.urls import reverse
+from django.utils.dateparse import parse_date
 from inference.models import InferenceResult
 from .models import Evaluation  # 방금 만든 Evaluation 모델을 임포트합니다.
 from django.db.models import Case, When, Value, IntegerField
@@ -63,41 +65,62 @@ def delete_inference(request, pk):
     return redirect('evaluation')
 @login_required
 def evaluation_list(request):
-    first_item = InferenceResult.objects.order_by('-created_at').first()
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    start_date = parse_date(start_date_str) if start_date_str else None
+    end_date = parse_date(end_date_str) if end_date_str else None
+
+    qs = InferenceResult.objects.all()
+    if start_date:
+        qs = qs.filter(created_at__date__gte=start_date)
+    if end_date:
+        qs = qs.filter(created_at__date__lte=end_date)
+
+    first_item = qs.order_by('-created_at').first()
     if first_item:
-        # 첫 번째 아이템의 상세 페이지로 이동
-        return redirect('evaluation_detail', pk=first_item.pk)
-    
-    # 아무 항목도 없을 경우 빈 페이지 렌더링
+        query_string = request.GET.urlencode()
+        url = reverse('evaluation_detail', args=[first_item.pk])
+        if query_string:
+            url = f"{url}?{query_string}"
+        return redirect(url)
+
     return render(request, 'evaluation/evaluation.html')
 
 @login_required
 def evaluation_detail(request, pk):
-    # ▼▼▼ 정렬 로직 수정 시작 ▼▼▼
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    start_date = parse_date(start_date_str) if start_date_str else None
+    end_date = parse_date(end_date_str) if end_date_str else None
 
-    # 1. 현재 사용자가 평가한 모든 항목의 ID를 가져옵니다.
     evaluated_ids = set(Evaluation.objects.filter(
         evaluator=request.user
     ).values_list('inference_result_id', flat=True))
 
-    # 2. 'is_evaluated' 라는 임시 필드를 만들어 정렬에 사용합니다.
-    #    - 평가된 항목(ID가 evaluated_ids에 포함)은 is_evaluated = 1
-    #    - 평가되지 않은 항목은 is_evaluated = 0
-    all_results = InferenceResult.objects.annotate(
+    qs = InferenceResult.objects.all()
+    if start_date:
+        qs = qs.filter(created_at__date__gte=start_date)
+    if end_date:
+        qs = qs.filter(created_at__date__lte=end_date)
+
+    all_results = qs.annotate(
         is_evaluated=Case(
             When(pk__in=evaluated_ids, then=Value(1)),
             default=Value(0),
             output_field=IntegerField(),
         )
-    ).order_by('is_evaluated', '-created_at') # 평가안됨(0) -> 평가됨(1) 순, 그 다음 최신순으로 정렬
-
-    # ▲▲▲ 정렬 로직 수정 끝 ▲▲▲
+    ).order_by('is_evaluated', '-created_at')
 
     paginator = Paginator(all_results, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    selected_item = get_object_or_404(InferenceResult, pk=pk)
+    selected_item = get_object_or_404(qs, pk=pk)
+
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
+    extra_query = '&' + query_params.urlencode() if query_params else ''
 
     display_image_urls = []
     if selected_item.image_urls and isinstance(selected_item.image_urls, list):
@@ -160,7 +183,10 @@ def evaluation_detail(request, pk):
         'user_evaluation': user_evaluation,
         'evaluated_ids': evaluated_ids,
         # solution_name을 context에 추가합니다.
-        'solution_name': selected_item.solution_name
+        'solution_name': selected_item.solution_name,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'extra_query': extra_query,
     }
     return render(request, 'evaluation/evaluation.html', context)
 @require_POST # POST 요청만 허용하여 안전하게 처리
